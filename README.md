@@ -418,7 +418,7 @@ Because the score exceeds 0.72, Pass 2 adversarial signals are computed. Even if
 
 > **Threat Model:** Organized syndicates using GPS-spoofing apps to fake location inside declared red-alert disruption zones, triggering mass false payouts and draining the liquidity pool.
 
-> **Scope:** This section addresses *adversarial* fraud — deliberate, technically sophisticated attacks. Opportunistic fraud (a single worker lying about their location) is handled by the primary model in Section 8. The distinction matters: the two layers target different attack profiles and are evaluated independently before being combined.
+Pass 2 is triggered when Pass 1 produces a score in the amber band (0.40–0.72) or above (> 0.72). It is not run on every claim — only where Pass 1 has identified ambiguity or elevated risk. This is a deliberate architectural choice: the 7 adversarial signals involve heavier computation (cell tower cross-referencing, graph analysis, trajectory validation) that would be wasteful and slow on the clear majority of legitimate claims.
 
 ### 9.1 How HustleSafe Differentiates a Genuine Worker from a Bad Actor
 
