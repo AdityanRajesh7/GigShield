@@ -490,17 +490,7 @@ Checks for GPS mock app signatures and evaluates reported GPS accuracy values. R
 
 ### 9.3 Adaptive Claim Resolution — Beyond Simple Thresholds
 
-The original three-tier model (Green < 0.50 / Amber 0.50–0.75 / Red > 0.75) uses **globally fixed thresholds** applied uniformly to all workers. This is too naive for three reasons:
-
-1. **It treats all workers identically.** A worker with 18 months of clean claim history and a score of 0.52 gets the same treatment as a new worker with no history and a score of 0.52. The base rate of fraud differs enormously between these two.
-
-2. **A single threshold ignores signal composition.** A score of 0.60 driven primarily by a GPS mismatch is very different from a score of 0.60 driven by a marginally elevated historical claim rate. The action appropriate for each is different.
-
-3. **Fixed boundaries create gaming incentives.** If fraudsters learn the threshold is 0.50, they calibrate their attacks to score 0.48 consistently.
-
-**HustleSafe's Revised Approach: Context-Aware Adaptive Resolution**
-
-The resolution model combines the fraud score with **three contextual dimensions** before assigning a tier:
+The composite fraud score (combining Pass 1 and, where triggered, Pass 2) is not evaluated against a single static threshold. Three contextual dimensions adjust the effective threshold per worker before a resolution tier is assigned:
 
 | Dimension | Input | Effect |
 |-----------|-------|--------|
