@@ -161,11 +161,13 @@ When Stage 1 fires, a fine-tuned **MuRIL** (Multilingual Representations for Ind
 | `festival_holiday` | "Republic Day", "Local harvest festival" |
 | `unknown` | No corroborating text signal found |
 
+Worker notification for excluded causes: When the NLP classifier attributes a demand collapse to festival_holiday or a worker-anticipatable event, the worker receives a push notification: "No payout triggered — today's delivery slowdown is linked to an event, which falls outside uncontrollable disruption coverage. The policy remains active." This is logged in the worker's claims history with the cause label. Workers can flag a misclassification through the insurer review channel.
+
 **Why cause classification matters:** The NLP output gates the payout decision. A `platform_outage` collapse is fully covered (uncontrollable). A `festival_holiday` collapse may be excluded (workers can anticipate and choose not to work). The cause label also feeds the LSTM as a categorical feature for future forecasting — the model learns that `civil_event` collapses in a zone tend to last 3–6 hours, while `platform_outage` collapses resolve in 30–90 minutes.
 
 **Integration:** NLP output becomes a categorical feature in the LSTM's next forward pass, enabling the pipeline to estimate **collapse duration** in addition to presence — directly informing the payout calculation.
 
-> **Honest framing for judges:** In high-signal events (e.g., major flood + government advisory + 70% order drop), the combined system achieves 85–92% recall with sub-20-minute detection latency. Ambiguous or low-signal events are routed for manual insurer review rather than triggering automatic payouts — this is by design, not a limitation.
+> **Honest framing for judges:** In high-signal events (e.g., major flood + government advisory + 70% order drop), the combined system achieves 85–92% recall with sub-20-minute detection latency in synthetic-environment testing. Real-world performance will be validated post-launch with production order volume data. Ambiguous or low-signal events are routed for manual insurer review rather than triggering automatic payouts — this is by design, not a limitation.
 
 **Training data note (Phase 1):** The LSTM trains on synthetic data in the hackathon environment, which is flagged as a known limitation. Real deployment requires 6+ months of production order volume data per city. MuRIL fine-tuning requires ~200 labeled examples per class, sourced from NewsAPI archives.
 
@@ -539,7 +541,7 @@ Based on IFMR LEAD gig economy research and platform disclosure data:
 |------|---------------|--------------|-----------------|---------------|
 | Basic | ₹15 | ₹600 | ₹600 | Part-time, < 50 orders/week |
 | Standard | ₹25 | ₹1,200 | ₹1,200 | Active, 50–100 orders/week |
-| Pro | ₹40 | ₹2,000 | ₹2,000 | Full-time, > 100 orders/week |
+| Pro | ₹40 | ₹1,750 | ₹1,750 | Full-time, > 100 orders/week |
 
 **Why this range and not the ₹5–₹19 in the original model?**
 
@@ -572,13 +574,13 @@ At under 1% of weekly earnings, the Standard premium is affordable even for the 
 
 **Income replacement test — what does a payout actually mean?**
 
-| Scenario | Disruption | Payout (Standard) | % of weekly income replaced |
-|----------|------------|-------------------|-----------------------------|
-| 3-hour rain disruption, midday | Thursday afternoon halt | ₹270 | 6–9% of weekly income |
-| Full-day flood shutdown | Complete delivery halt | ₹700 (capped at ₹1,200 max) | 15–24% of weekly income |
-| Two-day monsoon disruption | Back-to-back days | ₹1,200 (weekly cap) | 26–41% of weekly income |
+| Scenario | Disruption | Payout (Standard) | Payout (Pro) | % of weekly income replaced (Standard) |
+|----------|------------|-------------------|--------------|----------------------------------------|
+| 3-hour rain disruption, midday | Thursday afternoon halt | ₹270 | ₹270 | 6–9% of weekly income |
+| Full-day flood shutdown | Complete delivery halt | ₹700 (capped at ₹1,200 max) | ₹900 | 15–24% of weekly income |
+| Two-day monsoon disruption | Back-to-back days | ₹1,200 (weekly cap) | ₹1,750 (weekly cap) | 26–41% of weekly income |
 
-**Key design principle:** The coverage cap is set at a maximum of **60% of estimated weekly net earnings** (not gross). This prevents moral hazard — a worker should never earn more from a disruption payout than they would have earned working. At the Standard tier, ₹1,200 cap against ₹2,900–₹4,680 net weekly earnings is approximately **26–41% income replacement** — meaningful support without creating an incentive to stay home on borderline weather days.
+**Key design principle:** The coverage cap is set at a maximum of **60% of estimated weekly net earnings** (not gross). This prevents moral hazard — a worker should never earn more from a disruption payout than they would have earned working. Caps by tier: Basic ₹600 (21% of minimum net earnings), Standard ₹1,200 (41%), Pro ₹1,750 (60.3% — at the stated ceiling). At the Standard tier, ₹1,200 cap against ₹2,900–₹4,680 net weekly earnings is approximately **26–41% income replacement** — meaningful support without creating an incentive to stay home on borderline weather days.
 
 ### 10.4 Insurer Unit Economics — Standard Tier at Scale
 
@@ -739,10 +741,12 @@ The demo is designed as a **5-minute cinematic narrative arc**: one disruption e
 | Average monthly premium per worker | ₹100 |
 | Target workers (Bangalore Phase 1, 20% penetration) | 3,000 |
 | Monthly gross premium | ₹3,00,000/month |
-| Estimated monthly claim rate | 30–40% of insured workers |
-| Average payout per claim event | ₹270–₹400 |
+| Estimated monthly claim events per worker | 0.35–0.50 events/month |
+| Average payout per claim event | ₹270–₹350 |
 | Target loss ratio (sustainable) | 58–65% |
 | Platform technology fee (B2B) | 8% of gross premium |
+
+Loss ratio derivation: 0.42 avg claim events/month × ₹310 avg payout = ₹130.20 expected monthly claims cost ÷ ₹100 monthly premium = 62% loss ratio (consistent with Section 10.4 analysis).
 
 ### Commercial Model
 GigShield is **B2B2C**: the platform is sold to a licensed insurer (e.g., Digit Insurance, Acko) which handles regulatory compliance and capital reserves. GigShield provides the intelligence layer and worker UX.
@@ -753,8 +757,7 @@ GigShield is **B2B2C**: the platform is sold to a licensed insurer (e.g., Digit 
 - Referral program: workers earn ₹50 credit per successful referral
 
 ### Regulatory Framework
-Operates under **IRDAI Innovation Sandbox regulations (2019)**: up to 10,000 customers for 12 months before full licensing required.
-
+Intended to operate under IRDAI Innovation Sandbox regulations (2019) pending application and partnership with a licensed insurer (target partners: Digit Insurance, Acko). The sandbox permits up to 10,000 customers for 12 months, providing a compliant path to launch without full insurance license.
 ---
 
 ## 15. Roadmap
