@@ -116,6 +116,8 @@ A real-time geographic visualization built on **Mapbox GL JS**. Shows every moni
 - Real-time payout trigger indicators
 - 6-hour GDS forecast panel
 
+  ![Image](https://github.com/user-attachments/assets/f746b0a5-fe59-4bce-a8d1-26084e7d8658)
+
 ---
 
 ### ⚡ Innovation 3 — Pre-emptive Insurance Activation
@@ -324,6 +326,9 @@ The architecture above is functionally sound for a hackathon prototype and early
 4. System shows: *"Your estimated weekly premium: ₹25 (Standard). Your weekly protection cap: ₹1,200."*
 5. Enters UPI ID → ₹25 deducted → Policy activated
 
+   <img width="1000" height="500" alt="Image" src="https://github.com/user-attachments/assets/9735d259-ceb3-4686-afe9-78ef9d72d22a" />
+
+
 **Step 2 — Thursday Rainstorm**
 - `3:15 PM` — OpenWeatherMap reports 42mm/hr rainfall in Koramangala. GDS rises to 71.
 - `3:16 PM` — Zone state → RED. WebSocket broadcasts to all clients.
@@ -332,6 +337,8 @@ The architecture above is functionally sound for a hackathon prototype and early
 - `3:17 PM` — Fraud Engine runs: GPS ✅ Weather ✅ Peer activity ✅ → Score: 0.08 → Auto-approved
 - `3:47 PM` — Disruption closes. Payout of ₹270 initiated via Razorpay.
 - `3:48 PM` — Ravi: *"₹270 credited to your UPI. Stay safe!"*
+
+  ![Image](https://github.com/user-attachments/assets/3a59924e-d98b-4f9d-b48c-a19a341221e2)
 
 **Fraudulent Attempt — Deepak from Whitefield**
 - Deepak stays home, tries to fake a rain disruption.
@@ -561,6 +568,8 @@ Based on IFMR LEAD gig economy research and platform disclosure data:
 | Standard | ₹25 | ₹1,200 | ₹1,200 | Active, 50–100 orders/week |
 | Pro | ₹40 | ₹1,750 | ₹1,750 | Full-time, > 100 orders/week |
 
+<img width="1000" height="550" alt="Image" src="https://github.com/user-attachments/assets/fd61aadd-f5ad-49cd-954f-b2d25eaa43c1" />
+
 **Why this range and not the ₹5–₹19 in the original model?**
 
 The original range was economically unviable. At ₹11 average premium:
@@ -612,6 +621,8 @@ At under 1% of weekly earnings, the Standard premium is affordable even for the 
 | Platform operating cost (infra, support, fraud ops) | ₹40,000 |
 | Payment gateway fees (~1.5%) | ₹6,000 |
 | **Net margin (insurer + HustleSafe)** | **₹46,000 (~11.5%)** |
+
+<img width="1000" height="600" alt="Image" src="https://github.com/user-attachments/assets/a69d080f-8bb5-448f-bdc3-cb0841fa6179" />
 
 HustleSafe's technology fee is 8% of gross premium (₹32,000/month per 1,000 workers), leaving the insurer partner with ~3.5% net margin — thin but viable at scale, and standard for high-volume micro-insurance in emerging markets.
 
