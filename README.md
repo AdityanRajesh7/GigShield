@@ -4,6 +4,10 @@
 > **Guidewire DEVTrails 2026 — University Hackathon Submission**  
 > AI-Powered Parametric Insurance for Food Delivery Partners
 
+## 📽️ Demo Video
+
+[![Watch the HustleSafe Demo](https://img.youtube.com/vi/fZqMHUkTD1c/maxresdefault.jpg)](https://youtu.be/fZqMHUkTD1c)
+
 ---
 
 ## 📌 Table of Contents
