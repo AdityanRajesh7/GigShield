@@ -1,3 +1,5 @@
+import { useState } from "react";
+import { toast } from "sonner";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { CheckCircle2, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -5,6 +7,19 @@ import { useAuth } from "@/store/auth";
 
 export function WorkerPolicy() {
   const { worker } = useAuth();
+  const [isUpdating, setIsUpdating] = useState(false);
+
+  const handleUpgradeProcess = async (tierName: string) => {
+    setIsUpdating(true);
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 800));
+      toast.success(`Successfully upgraded to ${tierName} tier`);
+    } catch {
+      toast.error("Failed to upgrade policy");
+    } finally {
+      setIsUpdating(false);
+    }
+  };
   
   const tiers = [
     { name: "Basic", price: 15, cap: 400 },
@@ -77,8 +92,13 @@ export function WorkerPolicy() {
                     </li>
                   </ul>
                   
-                  <Button variant={isActive ? "outline" : "default"} className="w-full rounded-xl" disabled={isActive}>
-                    {isActive ? "Currently Active" : `Upgrade to ${tier.name}`}
+                  <Button 
+                    variant={isActive ? "outline" : "default"} 
+                    className="w-full rounded-xl" 
+                    disabled={isActive || isUpdating}
+                    onClick={() => handleUpgradeProcess(tier.name)}
+                  >
+                    {isActive ? "Currently Active" : isUpdating ? "Upgrading..." : `Upgrade to ${tier.name}`}
                   </Button>
                 </div>
               )

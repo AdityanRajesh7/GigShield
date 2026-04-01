@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { db, claimsTable, workersTable, zonesTable } from "@workspace/db";
 import { eq, sql, and } from "drizzle-orm";
+import { broadcastNotification } from "./notifications.js";
 
 const router = Router();
 
@@ -72,6 +73,15 @@ router.patch("/claims/:id", async (req, res) => {
 
     const [updated] = await db.update(claimsTable).set(updates).where(eq(claimsTable.id, req.params.id)).returning();
     if (!updated) return res.status(404).json({ error: "Claim not found" });
+
+    broadcastNotification({
+      id: updated.id,
+      title: `Claim ${updated.status.replace(/_/g, ' ').toUpperCase()}`,
+      message: `A claim update was processed for ${updated.disruption_type?.replace(/_/g, ' ') || 'unknown'}.`,
+      role: "all",
+      timestamp: new Date().toISOString()
+    });
+
     res.json(updated);
   } catch (err) {
     req.log.error({ err }, "Failed to update claim");

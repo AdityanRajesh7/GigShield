@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { db, zonesTable, workersTable, policiesTable, claimsTable, disruptionEventsTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
+import { broadcastNotification } from "./notifications.js";
 
 const router = Router();
 
@@ -122,6 +123,14 @@ router.post("/simulator/trigger", async (req, res) => {
       claimsCreated++;
     }
 
+    broadcastNotification({
+      id: disruption.id,
+      title: "Zone Disruption Triggered",
+      message: `${event_type.replace(/_/g, ' ').toUpperCase()} initiated in ${zone.name}. ${claimsCreated > 0 ? claimsCreated + ' claims auto-generated.' : ''}`,
+      role: "all",
+      timestamp: new Date().toISOString()
+    });
+
     res.json({
       success: true,
       disruption,
@@ -165,6 +174,14 @@ router.post("/simulator/resolve/:zoneId", async (req, res) => {
       status: "paid",
       paid_at: new Date(),
     }).where(and(eq(claimsTable.zone_id, zoneId), eq(claimsTable.status, "auto_approved")));
+
+    broadcastNotification({
+      id: Date.now().toString(),
+      title: "Disruption Resolved",
+      message: `Zone ${zone.name} has been restored to normal operations.`,
+      role: "all",
+      timestamp: new Date().toISOString()
+    });
 
     res.json({
       success: true,

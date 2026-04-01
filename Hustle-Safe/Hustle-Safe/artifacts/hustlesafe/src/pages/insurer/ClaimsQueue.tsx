@@ -191,11 +191,11 @@ export function InsurerClaimsQueue() {
             </div>
 
             <div className="pt-6 border-t border-border/50 grid grid-cols-2 gap-3 shrink-0">
-              <Button onClick={() => handleAction(selectedClaim.id, 'paid')} className="bg-success hover:bg-success/90 text-white font-bold">
-                <CheckCircle2 className="w-4 h-4 mr-2" /> Approve
+              <Button onClick={() => handleAction(selectedClaim.id, 'paid')} className="bg-success hover:bg-success/90 text-white font-bold" disabled={updateMutation.isPending}>
+                <CheckCircle2 className="w-4 h-4 mr-2" /> {updateMutation.isPending ? "Processing..." : "Approve"}
               </Button>
-              <Button onClick={() => handleAction(selectedClaim.id, 'auto_rejected')} variant="destructive" className="font-bold">
-                <XCircle className="w-4 h-4 mr-2" /> Reject
+              <Button onClick={() => handleAction(selectedClaim.id, 'auto_rejected')} variant="destructive" className="font-bold" disabled={updateMutation.isPending}>
+                <XCircle className="w-4 h-4 mr-2" /> {updateMutation.isPending ? "Processing..." : "Reject"}
               </Button>
             </div>
           </div>
