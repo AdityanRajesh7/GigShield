@@ -54,7 +54,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
                 <div className="text-sm font-bold text-foreground">{worker.name}</div>
                 <div className="text-xs text-muted-foreground flex items-center gap-1.5 mt-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-success"></span>
-                  {worker.zone_id.replace('_', ' ').toUpperCase()}
+                  {(worker?.zone_id || 'UNKNOWN').replace('_', ' ').toUpperCase()}
                 </div>
               </div>
             )}
@@ -108,7 +108,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
               <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-primary ring-2 ring-card"></span>
             </Button>
             <div className="w-10 h-10 rounded-full bg-muted border border-border flex items-center justify-center font-bold text-sm text-foreground">
-              {role === 'insurer' ? 'IN' : worker?.name.charAt(0) || 'U'}
+              {role === 'insurer' ? 'IN' : worker?.name?.charAt(0) || 'U'}
             </div>
           </div>
         </header>

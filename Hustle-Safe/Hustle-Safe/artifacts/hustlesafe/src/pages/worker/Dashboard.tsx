@@ -112,7 +112,7 @@ export function WorkerDashboard() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/50">
-                {claimsData?.claims.slice(0, 5).map(claim => (
+                {claimsData?.claims?.slice(0, 5).map(claim => (
                   <tr key={claim.id} className="hover:bg-muted/30 transition-colors">
                     <td className="px-6 py-4 font-medium">
                       {format(new Date(claim.created_at), 'MMM dd, yyyy')}

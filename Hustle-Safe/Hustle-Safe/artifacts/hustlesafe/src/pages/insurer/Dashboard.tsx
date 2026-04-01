@@ -44,7 +44,7 @@ export function InsurerDashboard() {
   };
 
   const handleEndAll = async () => {
-    const activeZones = zonesData?.zones.filter(z => z.gds_score >= 60) || [];
+    const activeZones = zonesData?.zones?.filter(z => z.gds_score >= 60) || [];
     for (const zone of activeZones) {
       await resolveMutation.mutateAsync({ zoneId: zone.id });
     }
@@ -70,7 +70,7 @@ export function InsurerDashboard() {
           {[
             { label: "Active Workers", value: "2,847", sub: "Online" },
             { label: "Zones Monitored", value: "8 / 8", sub: "Live" },
-            { label: "Active Disruptions", value: zonesData?.zones.filter(z => z.gds_score >= 60).length || 0, sub: "Zones" },
+            { label: "Active Disruptions", value: zonesData?.zones?.filter(z => z.gds_score >= 60).length || 0, sub: "Zones" },
             { label: "MTD Claims", value: "₹4.7L", sub: "Paid out" },
             { label: "Loss Ratio", value: "62%", sub: "Target 60%" },
           ].map((kpi, i) => (
@@ -89,7 +89,7 @@ export function InsurerDashboard() {
               <Activity className="w-5 h-5 text-primary" /> Live Zone Grid
             </h2>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              {zonesData?.zones.map(zone => (
+              {zonesData?.zones?.map(zone => (
                 <ZoneCard 
                   key={zone.id} 
                   zone={zone} 
@@ -102,7 +102,7 @@ export function InsurerDashboard() {
             <div className="bg-card rounded-3xl border border-border p-6 shadow-sm">
                <h2 className="text-lg font-display font-bold mb-4">Live Claims Feed</h2>
                <div className="space-y-3">
-                 {claimsData?.claims.map(claim => (
+                 {claimsData?.claims?.map(claim => (
                    <div key={claim.id} className="flex items-center justify-between p-3 rounded-xl hover:bg-muted transition-colors">
                      <div>
                        <div className="font-bold text-sm">{claim.worker_name || 'Worker'}</div>
@@ -136,7 +136,7 @@ export function InsurerDashboard() {
                     onChange={(e) => setSelectedZone(e.target.value)}
                   >
                     <option value="" className="bg-foreground text-white">Select a zone...</option>
-                    {zonesData?.zones.map(z => (
+                    {zonesData?.zones?.map(z => (
                       <option key={z.id} value={z.id} className="bg-foreground text-white">{z.name.replace('_', ' ').toUpperCase()}</option>
                     ))}
                   </select>

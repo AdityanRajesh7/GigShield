@@ -74,7 +74,7 @@ export function InsurerWorkers() {
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm">
-                          {worker.name.charAt(0)}
+                          {worker.name?.charAt(0) || 'U'}
                         </div>
                         <div>
                           <div className="font-bold text-foreground">{worker.name}</div>
@@ -83,7 +83,7 @@ export function InsurerWorkers() {
                       </div>
                     </td>
                     <td className="px-6 py-4 font-medium text-xs">
-                      {worker.zone_id.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                      {(worker.zone_id || 'UNKNOWN').replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
                     </td>
                     <td className="px-6 py-4">
                       <span className="capitalize text-xs font-bold text-muted-foreground bg-muted px-2 py-1 rounded-md">
