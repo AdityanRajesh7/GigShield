@@ -9,6 +9,7 @@ import { WorkerDashboard } from "./pages/worker/Dashboard";
 import { WorkerPolicy } from "./pages/worker/Policy";
 import { WorkerClaims } from "./pages/worker/Claims";
 import { LiveMap } from "./pages/shared/LiveMap";
+import { Settings } from "./pages/shared/Settings";
 
 import { InsurerDashboard } from "./pages/insurer/Dashboard";
 import { InsurerClaimsQueue } from "./pages/insurer/ClaimsQueue";
@@ -56,6 +57,7 @@ function Router() {
       
       {/* Shared Route */}
       <Route path="/map"><ProtectedRoute component={LiveMap} /></Route>
+      <Route path="/settings"><ProtectedRoute component={Settings} /></Route>
 
       {/* Insurer Routes */}
       <Route path="/insurer"><ProtectedRoute component={InsurerDashboard} roleRequired="insurer" /></Route>

@@ -3,22 +3,33 @@ import { Link, useLocation } from "wouter";
 import { 
   LayoutDashboard, Shield, FileText, CreditCard, 
   Map as MapIcon, Activity, ClipboardList, BarChart2, 
-  Users, LogOut, Bell
+  Users, LogOut, Bell, Settings as SettingsIcon
 } from "lucide-react";
 import { useAuth } from "@/store/auth";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { useNotifications } from "@/hooks/useNotifications";
 
 export function AppLayout({ children }: { children: ReactNode }) {
   const [location] = useLocation();
   const { role, worker, logout } = useAuth();
+  const { notifications, unreadCount, markAllAsRead } = useNotifications();
 
   const workerNav = [
     { name: "Overview", href: "/dashboard", icon: LayoutDashboard },
     { name: "My Policy", href: "/policy", icon: Shield },
     { name: "Claims", href: "/claims", icon: FileText },
     { name: "Live Map", href: "/map", icon: MapIcon },
+    { name: "Settings", href: "/settings", icon: SettingsIcon },
   ];
 
   const insurerNav = [
@@ -27,6 +38,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
     { name: "Analytics", href: "/insurer/analytics", icon: BarChart2 },
     { name: "Workers", href: "/insurer/workers", icon: Users },
     { name: "Live Map", href: "/map", icon: MapIcon },
+    { name: "Settings", href: "/settings", icon: SettingsIcon },
   ];
 
   const nav = role === 'insurer' ? insurerNav : workerNav;
@@ -103,13 +115,62 @@ export function AppLayout({ children }: { children: ReactNode }) {
       <main className="flex-1 flex flex-col min-w-0 bg-background/50">
         <header className="h-20 flex-shrink-0 border-b border-border/50 bg-card/50 backdrop-blur-md flex items-center justify-end px-8 sticky top-0 z-40">
           <div className="flex items-center gap-4">
-            <Button variant="outline" size="icon" className="rounded-full relative">
-              <Bell className="w-4 h-4 text-muted-foreground" />
-              <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-primary ring-2 ring-card"></span>
-            </Button>
-            <div className="w-10 h-10 rounded-full bg-muted border border-border flex items-center justify-center font-bold text-sm text-foreground">
-              {role === 'insurer' ? 'IN' : worker?.name?.charAt(0) || 'U'}
-            </div>
+            <DropdownMenu onOpenChange={(open) => { if (open) markAllAsRead(); }}>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="icon" className="rounded-full relative">
+                  <Bell className="w-4 h-4 text-muted-foreground" />
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[9px] font-bold text-primary-foreground ring-2 ring-card animate-in zoom-in">
+                      {unreadCount}
+                    </span>
+                  )}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-80 max-h-[400px] overflow-y-auto">
+                <DropdownMenuLabel>Live Notifications</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                
+                {notifications.length === 0 ? (
+                  <div className="p-4 text-center text-sm text-muted-foreground">
+                    No new notifications
+                  </div>
+                ) : (
+                  notifications.map((notif) => (
+                    <DropdownMenuItem key={notif.id} className="cursor-default">
+                      <div className="flex flex-col gap-0.5 w-full">
+                        <div className="flex justify-between items-start">
+                          <span className="font-semibold text-sm">{notif.title}</span>
+                          <span className="text-[10px] text-muted-foreground">
+                            {new Date(notif.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        </div>
+                        <span className="text-xs text-muted-foreground whitespace-pre-wrap">{notif.message}</span>
+                      </div>
+                    </DropdownMenuItem>
+                  ))
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="w-10 h-10 rounded-full bg-muted border border-border flex items-center justify-center font-bold text-sm text-foreground hover:ring-2 hover:ring-primary/20 transition-all outline-none">
+                  {role === 'insurer' ? 'IN' : worker?.name?.charAt(0) || 'U'}
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel>My Account</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem asChild>
+                  <Link href="/settings" className="w-full cursor-pointer">Settings</Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={logout} className="text-destructive font-bold cursor-pointer">
+                  <LogOut className="w-4 h-4 mr-2" />
+                  Sign Out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </header>
 
