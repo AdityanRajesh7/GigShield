@@ -164,13 +164,18 @@ export function Auth() {
 
   // ── Build Firebase user info helper ───────────────────────────────
   const buildFirebaseUser = useCallback(
-    (user: { uid: string; email: string | null; phoneNumber: string | null; displayName: string | null }) => ({
+    (user: {
+      uid: string;
+      email: string | null;
+      phoneNumber: string | null;
+      displayName: string | null;
+    }) => ({
       uid: user.uid,
       email: user.email,
       phoneNumber: user.phoneNumber,
       displayName: user.displayName,
     }),
-    []
+    [],
   );
 
   // ── Send OTP ──────────────────────────────────────────────────────
@@ -231,7 +236,8 @@ export function Auth() {
         loginWorker(
           {
             id: credential.user.uid,
-            name: workerName || credential.user.displayName || "Delivery Partner",
+            name:
+              workerName || credential.user.displayName || "Delivery Partner",
             phone: credential.user.phoneNumber || cleanPhone,
             platform: "zomato",
             zone_id: "koramangala",
@@ -242,14 +248,13 @@ export function Auth() {
             account_age_days: 0,
             created_at: new Date().toISOString(),
           },
-          fbUser
+          fbUser,
         );
       }
 
-      toast.success(
-        mode === "signup" ? "Account created!" : "Welcome back!",
-        { description: "Redirecting to your dashboard..." }
-      );
+      toast.success(mode === "signup" ? "Account created!" : "Welcome back!", {
+        description: "Redirecting to your dashboard...",
+      });
       setLocation("/dashboard");
     } catch (err: any) {
       const msg =
@@ -434,9 +439,7 @@ export function Auth() {
                         variants={itemVariant}
                         className="text-xl font-bold text-center mb-1"
                       >
-                        {mode === "login"
-                          ? "Welcome Back"
-                          : "Join HustleSafe"}
+                        {mode === "login" ? "Welcome Back" : "Join HustleSafe"}
                       </motion.h2>
                       <motion.p
                         variants={itemVariant}
@@ -512,7 +515,10 @@ export function Auth() {
                       animate="animate"
                       className="space-y-5"
                     >
-                      <motion.div variants={itemVariant} className="text-center">
+                      <motion.div
+                        variants={itemVariant}
+                        className="text-center"
+                      >
                         <div className="w-16 h-16 rounded-2xl bg-success/10 flex items-center justify-center mx-auto mb-3">
                           <CheckCircle2 className="w-8 h-8 text-success" />
                         </div>
@@ -542,14 +548,18 @@ export function Auth() {
                             </>
                           ) : (
                             <>
-                              Verify & {mode === "login" ? "Sign In" : "Create Account"}
+                              Verify &{" "}
+                              {mode === "login" ? "Sign In" : "Create Account"}
                               <ArrowRight className="w-4 h-4 ml-2" />
                             </>
                           )}
                         </Button>
                       </motion.div>
 
-                      <motion.div variants={itemVariant} className="text-center">
+                      <motion.div
+                        variants={itemVariant}
+                        className="text-center"
+                      >
                         <button
                           type="button"
                           onClick={() => {
@@ -580,9 +590,7 @@ export function Auth() {
                 <motion.form
                   key="insurer"
                   onSubmit={
-                    mode === "login"
-                      ? handleInsurerLogin
-                      : handleInsurerSignup
+                    mode === "login" ? handleInsurerLogin : handleInsurerSignup
                   }
                   {...fadeSlide}
                 >
@@ -680,19 +688,16 @@ export function Auth() {
                           <input
                             type="password"
                             value={confirmPassword}
-                            onChange={(e) =>
-                              setConfirmPassword(e.target.value)
-                            }
+                            onChange={(e) => setConfirmPassword(e.target.value)}
                             className="w-full pl-10 pr-4 py-3.5 rounded-xl border border-border bg-background focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium"
                             placeholder="••••••••"
                           />
                         </div>
-                        {confirmPassword &&
-                          password !== confirmPassword && (
-                            <p className="text-xs text-destructive mt-1.5 font-medium">
-                              Passwords do not match
-                            </p>
-                          )}
+                        {confirmPassword && password !== confirmPassword && (
+                          <p className="text-xs text-destructive mt-1.5 font-medium">
+                            Passwords do not match
+                          </p>
+                        )}
                       </motion.div>
                     )}
 
@@ -762,14 +767,14 @@ export function Auth() {
             className="text-center max-w-lg"
           >
             <h2 className="font-display text-3xl font-bold mb-3 drop-shadow-lg">
-              Income Protection,{" "}
+              <span className="text-primary">Income Protection,</span>{" "}
               <span className="italic text-primary-foreground/90">
                 Reimagined.
               </span>
             </h2>
             <p className="text-white/70 text-sm leading-relaxed">
-              Auto-detect grid disruptions. Get instant payouts. Zero
-              paperwork. Your safety net starts with a single sign-in.
+              Auto-detect grid disruptions. Get instant payouts. Zero paperwork.
+              Your safety net starts with a single sign-in.
             </p>
           </motion.div>
         </div>
