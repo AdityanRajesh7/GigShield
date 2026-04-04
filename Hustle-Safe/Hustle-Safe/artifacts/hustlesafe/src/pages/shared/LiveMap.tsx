@@ -40,7 +40,7 @@ function AutoFitBounds({ zones }: { zones: any[] }) {
 }
 
 export function LiveMap() {
-  const { data: zonesData } = useListZones({ query: { refetchInterval: 3000 } });
+  const { data: zonesData } = useListZones({ query: { refetchInterval: 3000 } as any });
   const [selectedZone, setSelectedZone] = useState<any>(null);
   const zones = zonesData?.zones || [];
 

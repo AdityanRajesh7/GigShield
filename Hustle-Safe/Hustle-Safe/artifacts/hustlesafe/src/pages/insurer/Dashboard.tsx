@@ -17,11 +17,11 @@ import { useQueryClient } from "@tanstack/react-query";
 export function InsurerDashboard() {
   const queryClient = useQueryClient();
   const { data: zonesData } = useListZones({
-    query: { refetchInterval: 3000 },
+    query: { refetchInterval: 3000 } as any,
   });
   const { data: claimsData } = useListClaims(
     { limit: 8 },
-    { query: { refetchInterval: 3000 } },
+    { query: { refetchInterval: 3000 } as any },
   );
 
   const triggerMutation = useTriggerDisruption();

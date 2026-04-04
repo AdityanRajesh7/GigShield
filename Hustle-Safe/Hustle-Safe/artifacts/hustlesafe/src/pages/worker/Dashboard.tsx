@@ -14,11 +14,11 @@ export function WorkerDashboard() {
 
   // Poll zone every 3s to simulate real-time
   const { data: zone } = useGetZone(worker?.zone_id || 'koramangala', {
-    query: { refetchInterval: 3000, enabled: !!worker }
+    query: { refetchInterval: 3000, enabled: !!worker } as any
   });
 
   const { data: claimsData } = useListClaims({ worker_id: worker?.id }, {
-    query: { refetchInterval: 5000, enabled: !!worker }
+    query: { refetchInterval: 5000, enabled: !!worker } as any
   });
 
   const isDanger = zone && zone.gds_score >= 60;
