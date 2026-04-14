@@ -50,3 +50,7 @@ Thumbs.db
 
 .env
 *.zip
+
+# Python cache artifacts
+__pycache__/
+*.py[cod]

@@ -36,6 +36,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const insurerNav = [
     { name: "Dashboard", href: "/insurer", icon: LayoutDashboard },
     { name: "Claims Queue", href: "/insurer/claims", icon: ClipboardList },
+    { name: "Fraud Engine", href: "/insurer/fraud", icon: Activity },
     { name: "Analytics", href: "/insurer/analytics", icon: BarChart2 },
     { name: "Workers", href: "/insurer/workers", icon: Users },
     { name: "Live Map", href: "/map", icon: MapIcon },

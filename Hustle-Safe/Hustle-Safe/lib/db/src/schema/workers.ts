@@ -15,6 +15,8 @@ export const workersTable = pgTable("workers", {
   is_active: boolean("is_active").default(true).notNull(),
   fraud_score: decimal("fraud_score", { precision: 3, scale: 2 }).default("0.0").notNull(),
   account_age_days: integer("account_age_days").default(0).notNull(),
+  device_id: text("device_id"),
+  trust_score: decimal("trust_score", { precision: 3, scale: 2 }).default("0.5").notNull(),
   created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 

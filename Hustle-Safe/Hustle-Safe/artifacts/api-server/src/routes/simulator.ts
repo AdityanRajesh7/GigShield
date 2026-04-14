@@ -3,6 +3,8 @@ import { db, zonesTable, workersTable, policiesTable, claimsTable, disruptionEve
 import { eq, and } from "drizzle-orm";
 import { broadcastNotification } from "./notifications.js";
 import { creditWallet } from "../lib/wallet.js";
+import { evaluateFraudClaim } from "../lib/fraud_pipeline.js";
+import { randomUUID } from "crypto";
 
 const router = Router();
 
@@ -100,46 +102,64 @@ router.post("/simulator/trigger", async (req, res) => {
     const tierPremiums: Record<string, string> = { basic: "15.00", standard: "28.50", pro: "45.00" };
 
     for (const worker of workers) {
-      let [policy] = await db.select().from(policiesTable)
-        .where(and(eq(policiesTable.worker_id, worker.id), eq(policiesTable.status, "active")));
+      try {
+        let [policy] = await db.select().from(policiesTable)
+          .where(and(eq(policiesTable.worker_id, worker.id), eq(policiesTable.status, "active")));
 
-      // Auto-provision a policy if the worker doesn't have one yet
-      if (!policy) {
-        try {
-          [policy] = await db.insert(policiesTable).values({
-            worker_id: worker.id,
-            tier: worker.policy_tier || "standard",
-            weekly_premium: tierPremiums[worker.policy_tier] || "28.50",
-            coverage_cap: tierCaps[worker.policy_tier] || "800.00",
-            status: "active",
-            zone_id: zone_id,
-          }).returning();
-        } catch (policyErr) {
-          req.log.error({ err: policyErr, workerId: worker.id }, "Failed to auto-provision policy during disruption");
-          continue;
+        // Auto-provision a policy if the worker doesn't have one yet
+        if (!policy) {
+          try {
+            [policy] = await db.insert(policiesTable).values({
+              worker_id: worker.id,
+              tier: worker.policy_tier || "standard",
+              weekly_premium: tierPremiums[worker.policy_tier] || "28.50",
+              coverage_cap: tierCaps[worker.policy_tier] || "800.00",
+              status: "active",
+              zone_id: zone_id,
+            }).returning();
+          } catch (policyErr) {
+            req.log.error({ err: policyErr, workerId: worker.id }, "Failed to auto-provision policy during disruption");
+            continue;
+          }
         }
+
+        const hoursAffected = (duration_minutes / 60).toFixed(2);
+        const coverageCap = parseFloat(policy.coverage_cap);
+        const payout = Math.min(parseFloat(hoursAffected) * 90, coverageCap);
+        
+        const claimId = randomUUID();
+
+        // Use the actual fraud pipeline for simulation
+        const fraudResult = await evaluateFraudClaim({
+          claim_id: claimId,
+          worker_id: worker.id,
+          zone_id,
+          user_lat: parseFloat(zone.lat || "12.9716"),
+          user_lng: parseFloat(zone.lng || "77.5946"),
+          device_id: worker.device_id || "demo-device",
+          disruption_start: disruption.started_at || new Date(),
+          gps_trace: [], // Mock empty for pass 1 exit / baseline
+          policy_tier: worker.policy_tier
+        });
+
+        await db.insert(claimsTable).values({
+          id: claimId,
+          worker_id: worker.id,
+          policy_id: policy.id,
+          zone_id,
+          disruption_type: event_type,
+          disruption_start: new Date(),
+          hours_affected: hoursAffected,
+          hourly_rate: "90.00",
+          payout_amount: payout.toFixed(2),
+          fraud_score: fraudResult.final_score.toFixed(2),
+          status: fraudResult.resolution_tier.toLowerCase().replace(/_/g, '_'),
+          fraud_signals: fraudResult.individual_signal_scores,
+        });
+        claimsCreated++;
+      } catch (workerErr) {
+        req.log.error({ workerErr, workerId: worker.id }, "Failed to generate claim for worker during simulation");
       }
-
-      const hoursAffected = (duration_minutes / 60).toFixed(2);
-      const coverageCap = parseFloat(policy.coverage_cap);
-      const payout = Math.min(parseFloat(hoursAffected) * 90, coverageCap);
-      const fraudScore = generateFraudScore(worker);
-      const claimStatus = fraudScore > 0.72 ? "insurer_review" : fraudScore > 0.40 ? "soft_hold" : "auto_approved";
-
-      await db.insert(claimsTable).values({
-        worker_id: worker.id,
-        policy_id: policy.id,
-        zone_id,
-        disruption_type: event_type,
-        disruption_start: new Date(),
-        hours_affected: hoursAffected,
-        hourly_rate: "90.00",
-        payout_amount: payout.toFixed(2),
-        fraud_score: fraudScore.toFixed(2),
-        status: claimStatus,
-        fraud_signals: generateFraudSignals(fraudScore),
-      });
-      claimsCreated++;
     }
 
     broadcastNotification({
@@ -150,7 +170,7 @@ router.post("/simulator/trigger", async (req, res) => {
       timestamp: new Date().toISOString()
     });
 
-    res.json({
+    return res.json({
       success: true,
       disruption,
       zone,
@@ -159,7 +179,7 @@ router.post("/simulator/trigger", async (req, res) => {
     });
   } catch (err) {
     req.log.error({ err }, "Failed to trigger disruption");
-    res.status(500).json({ error: "Failed to trigger disruption" });
+    return res.status(500).json({ error: "Failed to trigger disruption" });
   }
 });
 
@@ -222,14 +242,14 @@ router.post("/simulator/resolve/:zoneId", async (req, res) => {
       timestamp: new Date().toISOString()
     });
 
-    res.json({
+    return res.json({
       success: true,
       zone,
       message: `Disruption resolved in ${zone.name}. Zone restored to normal.`,
     });
   } catch (err) {
     req.log.error({ err }, "Failed to resolve disruption");
-    res.status(500).json({ error: "Failed to resolve disruption" });
+    return res.status(500).json({ error: "Failed to resolve disruption" });
   }
 });
 
@@ -243,10 +263,10 @@ router.get("/disruptions", async (req, res) => {
     const disruptions = await db.select().from(disruptionEventsTable)
       .where(conditions.length > 0 ? (conditions.length === 1 ? conditions[0] : and(...conditions)) : undefined)
       .orderBy(disruptionEventsTable.created_at);
-    res.json({ disruptions });
+    return res.json({ disruptions });
   } catch (err) {
     req.log.error({ err }, "Failed to list disruptions");
-    res.status(500).json({ error: "Failed to list disruptions" });
+    return res.status(500).json({ error: "Failed to list disruptions" });
   }
 });
 

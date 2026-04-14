@@ -39,7 +39,7 @@ export function ZoneCard({ zone, onClick, selected, hasTimer }: ZoneCardProps) {
       whileTap={{ scale: 0.98 }}
       onClick={onClick}
       className={cn(
-        "relative text-left w-full h-[180px] p-5 rounded-2xl flex flex-col justify-between transition-all duration-300",
+        "relative text-left w-full min-h-[180px] h-auto p-5 rounded-2xl flex flex-col justify-between transition-all duration-300",
         "bg-card shadow-sm border",
         selected
           ? "ring-2 ring-primary border-transparent shadow-md"
@@ -92,8 +92,8 @@ export function ZoneCard({ zone, onClick, selected, hasTimer }: ZoneCardProps) {
         </div>
       </div>
 
-      <div className="flex items-center gap-4 text-sm text-muted-foreground w-full pt-4 border-t border-border/50">
-        <div className="flex items-center gap-1.5">
+      <div className="flex items-center flex-wrap gap-x-4 gap-y-2 text-sm text-muted-foreground w-full pt-4 border-t border-border/50 mt-auto">
+        <div className="flex items-center gap-1.5 shrink-0">
           <Users className="w-4 h-4" />
           <span className="font-semibold text-foreground">
             {zone.active_workers}
@@ -101,14 +101,14 @@ export function ZoneCard({ zone, onClick, selected, hasTimer }: ZoneCardProps) {
         </div>
 
         {zone.rainfall_mm > 10 && (
-          <div className="flex items-center gap-1.5 text-primary">
+          <div className="flex items-center gap-1.5 text-primary shrink-0">
             <CloudRain className="w-4 h-4" />
             <span className="font-semibold">{zone.rainfall_mm}mm</span>
           </div>
         )}
 
         {zone.govt_alert && (
-          <div className="flex items-center gap-1.5 text-destructive">
+          <div className="flex items-center gap-1.5 text-destructive shrink-0">
             <ShieldAlert className="w-4 h-4" />
             <span className="font-semibold text-[10px] uppercase">Alert</span>
           </div>

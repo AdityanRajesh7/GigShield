@@ -24,3 +24,23 @@ export const claimsTable = pgTable("claims", {
 export const insertClaimSchema = createInsertSchema(claimsTable).omit({ id: true, created_at: true });
 export type InsertClaim = z.infer<typeof insertClaimSchema>;
 export type Claim = typeof claimsTable.$inferSelect;
+
+export const fraudAuditLogTable = pgTable("fraud_audit_log", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  claim_id: uuid("claim_id").notNull(),
+  worker_id: uuid("worker_id").notNull(),
+  timestamp: timestamp("timestamp", { withTimezone: true }).defaultNow().notNull(),
+  signals: jsonb("signals").notNull(),
+  pass1_composite: decimal("pass1_composite", { precision: 4, scale: 3 }).notNull(),
+  pass2_composite: decimal("pass2_composite", { precision: 4, scale: 3 }),
+  xgboost_score: decimal("xgboost_score", { precision: 4, scale: 3 }).notNull(),
+  resolution_tier: text("resolution_tier").notNull(),
+  critical_flags: jsonb("critical_flags").notNull(),
+  model_version: text("model_version").notNull(),
+  adaptive_threshold_applied: decimal("adaptive_threshold_applied", { precision: 4, scale: 3 }).notNull(),
+  device_id: text("device_id"),
+});
+
+export const insertFraudAuditLogSchema = createInsertSchema(fraudAuditLogTable).omit({ id: true, timestamp: true });
+export type InsertFraudAuditLog = z.infer<typeof insertFraudAuditLogSchema>;
+export type FraudAuditLog = typeof fraudAuditLogTable.$inferSelect;

@@ -18,6 +18,7 @@ import { InsurerDashboard } from "./pages/insurer/Dashboard";
 import { InsurerClaimsQueue } from "./pages/insurer/ClaimsQueue";
 import { InsurerAnalytics } from "./pages/insurer/Analytics";
 import { InsurerWorkers } from "./pages/insurer/Workers";
+import { InsurerFraudEngine } from "./pages/insurer/FraudEngineView";
 
 import { useAuth } from "./store/auth";
 import { auth as firebaseAuth } from "./lib/firebase";
@@ -94,6 +95,7 @@ function Router() {
       <Route path="/insurer/claims"><ProtectedRoute component={InsurerClaimsQueue} roleRequired="insurer" /></Route>
       <Route path="/insurer/analytics"><ProtectedRoute component={InsurerAnalytics} roleRequired="insurer" /></Route>
       <Route path="/insurer/workers"><ProtectedRoute component={InsurerWorkers} roleRequired="insurer" /></Route>
+      <Route path="/insurer/fraud"><ProtectedRoute component={InsurerFraudEngine} roleRequired="insurer" /></Route>
 
       <Route component={NotFound} />
     </Switch>

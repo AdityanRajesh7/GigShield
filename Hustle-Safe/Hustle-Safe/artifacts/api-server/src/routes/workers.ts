@@ -1,6 +1,6 @@
 import { Router } from "express";
-import { db, workersTable, policiesTable } from "@workspace/db";
-import { eq, sql } from "drizzle-orm";
+import { db, workersTable, gpsHistoryTable, policiesTable, claimsTable } from "@workspace/db";
+import { eq, sql, and, desc } from "drizzle-orm";
 import { provisionWallet } from "../lib/wallet.js";
 
 const router = Router();
@@ -19,10 +19,10 @@ router.get("/workers", async (req, res) => {
       .offset(parseInt(offset));
 
     const [{ count }] = await db.select({ count: sql<number>`count(*)` }).from(workersTable);
-    res.json({ workers, total: Number(count) });
+    return res.json({ workers, total: Number(count) });
   } catch (err) {
     req.log.error({ err }, "Failed to list workers");
-    res.status(500).json({ error: "Failed to list workers" });
+    return res.status(500).json({ error: "Failed to list workers" });
   }
 });
 
@@ -31,10 +31,10 @@ router.get("/workers/phone/:phone", async (req, res) => {
     const phone = decodeURIComponent(req.params.phone);
     const [worker] = await db.select().from(workersTable).where(eq(workersTable.phone, phone));
     if (!worker) return res.status(404).json({ error: "Worker not found" });
-    res.json(worker);
+    return res.json(worker);
   } catch (err) {
     req.log.error({ err }, "Failed to get worker by phone");
-    res.status(500).json({ error: "Failed to get worker" });
+    return res.status(500).json({ error: "Failed to get worker" });
   }
 });
 
@@ -42,10 +42,41 @@ router.get("/workers/:id", async (req, res) => {
   try {
     const [worker] = await db.select().from(workersTable).where(eq(workersTable.id, req.params.id));
     if (!worker) return res.status(404).json({ error: "Worker not found" });
-    res.json(worker);
+    return res.json(worker);
   } catch (err) {
     req.log.error({ err }, "Failed to get worker");
-    res.status(500).json({ error: "Failed to get worker" });
+    return res.status(500).json({ error: "Failed to get worker" });
+  }
+});
+
+router.get("/workers/:id/statistics", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const [stats] = await db.select({
+      total_payouts_ytd: sql<number>`COALESCE(SUM(payout_amount::numeric), 0)`,
+      events_this_year: sql<number>`COUNT(*) FILTER (WHERE status = 'paid')`,
+    })
+      .from(claimsTable)
+      .where(and(
+        eq(claimsTable.worker_id, id),
+        sql`EXTRACT(YEAR FROM created_at) = EXTRACT(YEAR FROM CURRENT_DATE)`
+      ));
+
+    const [policy] = await db.select()
+      .from(policiesTable)
+      .where(and(eq(policiesTable.worker_id, id), eq(policiesTable.status, "active")))
+      .limit(1);
+
+    return res.json({
+      total_payouts_ytd: Number(stats?.total_payouts_ytd || 0),
+      events_this_year: Number(stats?.events_this_year || 0),
+      coverage_cap: policy ? parseFloat(policy.coverage_cap) : 800,
+      policy_tier: policy?.tier || "Standard"
+    });
+  } catch (err) {
+    req.log.error({ err }, "Failed to get worker statistics");
+    return res.status(500).json({ error: "Failed to get statistics" });
   }
 });
 
@@ -62,7 +93,6 @@ router.post("/workers", async (req, res) => {
       fraud_score: "0.05",
       account_age_days: 1,
     }).returning();
-
     // Auto-provision a zero-balance wallet for this worker
     provisionWallet(worker.id).catch((err) =>
       req.log.error({ err, workerId: worker.id }, "Failed to provision wallet for new worker")
@@ -82,13 +112,36 @@ router.post("/workers", async (req, res) => {
       req.log.error({ err, workerId: worker.id }, "Failed to auto-provision policy")
     );
 
-    res.status(201).json(worker);
+    return res.status(201).json(worker);
   } catch (err: unknown) {
     req.log.error({ err }, "Failed to create worker");
     if ((err as { code?: string }).code === "23505") {
       return res.status(409).json({ error: "Phone number already registered" });
     }
-    res.status(500).json({ error: "Failed to create worker" });
+    return res.status(500).json({ error: "Failed to create worker" });
+  }
+});
+
+router.post("/workers/:id/ping", async (req, res) => {
+  try {
+    const { lat, lng, accuracy, cell_lat, cell_lng, session_active, zone_id } = req.body;
+    
+    await db.insert(gpsHistoryTable).values({
+      worker_id: req.params.id as any,
+      lat: String(lat),
+      lng: String(lng),
+      accuracy: accuracy ? Number(accuracy) : 10.0,
+      cell_lat: cell_lat ? String(cell_lat) : null,
+      cell_lng: cell_lng ? String(cell_lng) : null,
+      session_active: session_active !== undefined ? !!session_active : true,
+      zone_id: zone_id as any,
+      timestamp: new Date(),
+    });
+
+    return res.status(204).send();
+  } catch (err) {
+    req.log.error({ err }, "Failed to record worker ping");
+    return res.status(500).json({ error: "Telemetry ingestion failed" });
   }
 });
 

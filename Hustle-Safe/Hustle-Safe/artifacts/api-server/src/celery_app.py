@@ -1,6 +1,10 @@
 from celery import Celery
 from celery.schedules import crontab
 
+import os
+from src.ml import fraud_pass_two
+from src.ml import fraud_inference
+
 # Create Celery app FIRST
 celery = Celery(
     "worker",

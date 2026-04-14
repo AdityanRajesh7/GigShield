@@ -10,9 +10,11 @@ import premiumRouter from "./premium.js";
 import notificationsRouter from "./notifications.js";
 import stripeRouter from "./stripe.js";
 import walletRouter from "./wallet.js";
+import fraudRouter from "./fraud.js";
 
 const router: IRouter = Router();
 
+router.use("/fraud", fraudRouter);
 router.use(healthRouter);
 router.use(workersRouter);
 router.use(zonesRouter);

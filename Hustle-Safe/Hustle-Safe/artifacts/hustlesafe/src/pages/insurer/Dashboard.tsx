@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { Activity, Zap, Ban, Clock } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 
+
 const fallbackHourlyForecast = [
   { time: '08:00', Koramangala: 32, Indiranagar: 28, Whitefield: 20, Electronic_City: 15, HSR_Layout: 25, BTM_Layout: 30, Marathahalli: 22, Jayanagar: 18 },
   { time: '10:00', Koramangala: 35, Indiranagar: 30, Whitefield: 22, Electronic_City: 18, HSR_Layout: 28, BTM_Layout: 32, Marathahalli: 25, Jayanagar: 20 },
@@ -24,6 +25,18 @@ const fallbackHourlyForecast = [
   { time: '20:00', Koramangala: 45, Indiranagar: 40, Whitefield: 28, Electronic_City: 22, HSR_Layout: 35, BTM_Layout: 40, Marathahalli: 30, Jayanagar: 25 },
   { time: '22:00', Koramangala: 30, Indiranagar: 28, Whitefield: 20, Electronic_City: 15, HSR_Layout: 25, BTM_Layout: 30, Marathahalli: 22, Jayanagar: 18 },
 ];
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
+
+function normalizeZoneStatus(status: string | undefined, gdsScore: number | undefined): "active" | "warning" | "disrupted" {
+  const s = (status || "").toLowerCase();
+  if (s === "disrupted" || s === "shutdown") return "disrupted";
+  if (s === "warning" || s === "high" || s === "elevated") return "warning";
+  if ((gdsScore ?? 0) >= 80) return "disrupted";
+  if ((gdsScore ?? 0) >= 60) return "warning";
+  return "active";
+}
+
 
 export function InsurerDashboard() {
   const queryClient = useQueryClient();
@@ -40,9 +53,9 @@ export function InsurerDashboard() {
   const [activeTimers, setActiveTimers] = useState<Record<string, NodeJS.Timeout>>({});
   const timersRef = useRef<Record<string, NodeJS.Timeout>>({});
 
-  const [aiHourlyData, setAiHourlyData] = useState<any[]>(fallbackHourlyForecast);
+  const [aiHourlyData, setAiHourlyData] = useState<any[]>([]);
   const [dailyPeaks, setDailyPeaks] = useState<Record<string, { score: number, time: string }>>({});
-  const [avgPremium, setAvgPremium] = useState("₹28.50");
+  const [platformAnalytics, setPlatformAnalytics] = useState<any>(null);
 
   // NEW: Autonomous Live Zone State & Time Scrubber
   const [liveZones, setLiveZones] = useState<any[]>([]);
@@ -54,50 +67,38 @@ export function InsurerDashboard() {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 3000);
 
-        const [hourlyRes, premiumRes] = await Promise.all([
-          fetch('/api/zones/forecast/24-hour', { signal: controller.signal }).catch(() => null),
-          fetch('/api/analytics/premium-summary', { signal: controller.signal }).catch(() => null)
+        const [hourlyRes, analyticsRes] = await Promise.all([
+          fetch(`${API_BASE_URL}/api/zones/forecast/24-hour`, { signal: controller.signal }).catch(() => null),
+          fetch(`${API_BASE_URL}/api/analytics/overview`, { signal: controller.signal }).catch(() => null)
         ]);
 
         clearTimeout(timeoutId);
 
-        if (premiumRes && premiumRes.ok) {
-          const premData = await premiumRes.json();
-          if (premData.average_weekly) setAvgPremium(`₹${premData.average_weekly}`);
+        if (analyticsRes && analyticsRes.ok) {
+          const analyticsData = await analyticsRes.json();
+          setPlatformAnalytics(analyticsData);
         }
 
-        let hourlyDataToProcess = fallbackHourlyForecast;
         if (hourlyRes && hourlyRes.ok) {
           const apiData = await hourlyRes.json();
-          if (apiData.forecast) hourlyDataToProcess = apiData.forecast;
+          if (apiData.forecast) {
+            setAiHourlyData(apiData.forecast);
+            const peaks: Record<string, { score: number, time: string }> = {};
+            apiData.forecast.forEach((hourData: any) => {
+              Object.keys(hourData).forEach(key => {
+                if (key !== 'time') {
+                  const currentScore = hourData[key];
+                  if (!peaks[key] || currentScore > peaks[key].score) {
+                    peaks[key] = { score: currentScore, time: hourData.time };
+                  }
+                }
+              });
+            });
+            setDailyPeaks(peaks);
+          }
         }
-        setAiHourlyData(hourlyDataToProcess);
-
-        const peaks: Record<string, { score: number, time: string }> = {};
-        hourlyDataToProcess.forEach((hourData: any) => {
-          Object.keys(hourData).forEach(key => {
-            if (key !== 'time') {
-              const currentScore = hourData[key];
-              if (!peaks[key] || currentScore > peaks[key].score) {
-                peaks[key] = { score: currentScore, time: hourData.time };
-              }
-            }
-          });
-        });
-        setDailyPeaks(peaks);
       } catch (error) {
-        setAiHourlyData(fallbackHourlyForecast);
-        const peaks: Record<string, { score: number, time: string }> = {};
-        fallbackHourlyForecast.forEach((hourData: any) => {
-          Object.keys(hourData).forEach(key => {
-            if (key !== 'time') {
-              if (!peaks[key] || hourData[key] > peaks[key].score) {
-                peaks[key] = { score: hourData[key], time: hourData.time };
-              }
-            }
-          });
-        });
-        setDailyPeaks(peaks);
+        console.error("Dashboard data fetch failed", error);
       }
     };
     fetchDashboardData();
@@ -107,42 +108,53 @@ export function InsurerDashboard() {
   // NEW: Autonomous Synchronization Engine
   // This maps the AI's hourly forecast to the current clock time and auto-triggers disruptions.
   useEffect(() => {
-    if (!zonesData?.zones || aiHourlyData.length === 0) return;
-
     // Use real clock time unless the user is using the Time Scrubber for the demo
     const currentHour = simulatedHour !== null ? simulatedHour : new Date().getHours();
 
+    let hourlyDataToProcess = aiHourlyData.length > 0 ? aiHourlyData : fallbackHourlyForecast;
+
     // Find the closest hourly bucket that matches the current time
-    let currentHourData = aiHourlyData[0];
-    for (const bucket of aiHourlyData) {
+    let currentHourData = hourlyDataToProcess[0];
+    for (const bucket of hourlyDataToProcess) {
       const bucketHour = parseInt(bucket.time.split(':')[0], 10);
       if (currentHour >= bucketHour) {
         currentHourData = bucket;
       }
     }
 
-    const updatedZones = zonesData.zones.map((zone: any) => {
+    const zonesToMap = (zonesData?.zones && zonesData.zones.length > 0)
+      ? zonesData.zones
+      : [
+        { id: "1", name: "Koramangala", status: "active", gds_score: 32 },
+        { id: "2", name: "Indiranagar", status: "active", gds_score: 28 },
+        { id: "3", name: "Whitefield", status: "active", gds_score: 20 },
+        { id: "4", name: "Electronic City", status: "active", gds_score: 15 },
+        { id: "5", name: "HSR Layout", status: "active", gds_score: 25 },
+        { id: "6", name: "BTM Layout", status: "active", gds_score: 30 },
+        { id: "7", name: "Marathahalli", status: "active", gds_score: 22 },
+        { id: "8", name: "Jayanagar", status: "active", gds_score: 18 },
+      ];
+
+    const updatedZones = zonesToMap.map((zone: any) => {
       const safeKey = zone.name.replace(" ", "_");
       // Use the AI's prediction for this exact hour
       const aiScore = currentHourData[safeKey] || 0;
 
       // Use whichever is higher: real backend score (disruption) or AI prediction
-      const finalScore = Math.max(zone.gds_score, aiScore);
+      const finalScore = Math.max(Number(zone.gds_score), aiScore);
 
       // AUTONOMOUS TRIGGER LOGIC
       let computedStatus = zone.status;
 
       // If there is NO manual timer running, let the highest score dictate the status
       if (!activeTimers[zone.id]) {
-        if (finalScore >= 80) computedStatus = 'disrupted';
-        else if (finalScore >= 60) computedStatus = 'warning';
-        else computedStatus = 'active';
+        computedStatus = normalizeZoneStatus(zone.status, finalScore);
       }
 
       return {
         ...zone,
         gds_score: finalScore,
-        status: computedStatus
+        status: computedStatus,
       };
     });
 
@@ -194,13 +206,11 @@ export function InsurerDashboard() {
           </Button>
         </div>
 
-        <div className="grid grid-cols-6 gap-3">
+        <div className="grid grid-cols-5 gap-3">
           {[
             { label: "Active Workers", value: "2,847", sub: "Online" },
             { label: "Zones Live", value: "8 / 8", sub: "Monitored" },
-            { label: "Avg Premium", value: avgPremium, sub: "Via XGBoost" },
-            // KPI now dynamically counts autonomous AI disruptions from the liveZones array
-            { label: "Active Disruptions", value: liveZones.filter((z) => z.status === 'disrupted').length || 0, sub: "Zones" },
+            { label: "Active Disruptions", value: liveZones.filter((z) => z.status === 'disrupted').length, sub: "Zones" },
             { label: "MTD Claims", value: "₹4.7L", sub: "Paid out" },
             { label: "Loss Ratio", value: "62%", sub: "Target 60%" },
           ].map((kpi, i) => (
@@ -235,7 +245,7 @@ export function InsurerDashboard() {
                     <span className="text-[9px] uppercase text-muted-foreground font-bold tracking-wider">Today's Peak</span>
                     <div className="flex items-center justify-between">
                       <span className={`text-base font-display font-bold px-2 py-0.5 rounded-md ${peakData.score >= 80 ? 'bg-destructive/10 text-destructive' :
-                          peakData.score >= 60 ? 'bg-warning/10 text-warning' : 'bg-success/10 text-success'
+                        peakData.score >= 60 ? 'bg-warning/10 text-warning' : 'bg-success/10 text-success'
                         }`}>
                         GDS {peakData.score}
                       </span>
@@ -278,7 +288,7 @@ export function InsurerDashboard() {
             </div>
 
             {/* Changed from zonesData to liveZones so the grid follows the autonomous AI Engine */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
               {liveZones.map((zone) => (
                 <ZoneCard key={zone.id} zone={zone} selected={selectedZone === zone.id} hasTimer={!!activeTimers[zone.id]} onClick={() => setSelectedZone(zone.id)} />
               ))}
@@ -352,7 +362,9 @@ export function InsurerDashboard() {
                 <span className="text-xs font-medium text-muted-foreground">Target: ₹12L</span>
               </div>
               <div className="w-full h-2.5 bg-muted rounded-full overflow-hidden">
-                <div className="h-full bg-primary rounded-full w-[70%]"></div>
+                <div
+                  className="h-full bg-primary rounded-full transition-all duration-500 w-[70%]"
+                ></div>
               </div>
             </div>
           </div>

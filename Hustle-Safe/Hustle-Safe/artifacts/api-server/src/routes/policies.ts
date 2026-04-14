@@ -22,10 +22,10 @@ router.get("/policies", async (req, res) => {
       .orderBy(policiesTable.created_at);
 
     const [{ count }] = await db.select({ count: sql<number>`count(*)` }).from(policiesTable);
-    res.json({ policies, total: Number(count) });
+    return res.json({ policies, total: Number(count) });
   } catch (err) {
     req.log.error({ err }, "Failed to list policies");
-    res.status(500).json({ error: "Failed to list policies" });
+    return res.status(500).json({ error: "Failed to list policies" });
   }
 });
 
@@ -33,10 +33,10 @@ router.get("/policies/:id", async (req, res) => {
   try {
     const [policy] = await db.select().from(policiesTable).where(eq(policiesTable.id, req.params.id));
     if (!policy) return res.status(404).json({ error: "Policy not found" });
-    res.json(policy);
+    return res.json(policy);
   } catch (err) {
     req.log.error({ err }, "Failed to get policy");
-    res.status(500).json({ error: "Failed to get policy" });
+    return res.status(500).json({ error: "Failed to get policy" });
   }
 });
 
@@ -61,10 +61,10 @@ router.post("/policies", async (req, res) => {
       status: "active",
       expires_at: expiresAt,
     }).returning();
-    res.status(201).json(policy);
+    return res.status(201).json(policy);
   } catch (err) {
     req.log.error({ err }, "Failed to create policy");
-    res.status(500).json({ error: "Failed to create policy" });
+    return res.status(500).json({ error: "Failed to create policy" });
   }
 });
 

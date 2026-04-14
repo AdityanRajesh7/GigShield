@@ -424,6 +424,69 @@ paths:
               schema:
                 $ref: "#/components/schemas/PremiumHistoryResponse"
 
+  /fraud/evaluate:
+    post:
+      operationId: evaluateFraudClaim
+      tags: [fraud]
+      summary: Evaluate fraud for a worker claim context using full adaptive pipeline
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FraudEvaluationRequest"
+      responses:
+        "200":
+          description: Final Adaptive Fraud Evaluation Result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FraudEvaluationResult"
+                
+  /fraud/audit/{claim_id}:
+    get:
+      operationId: getFraudAuditLog
+      tags: [fraud]
+      summary: Fetch the full audit log and XGBoost breakdown for a claim
+      parameters:
+        - name: claim_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Audit log response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FraudAuditLog"
+
+  /fraud/signals/{worker_id}:
+    get:
+      operationId: getWorkerSignalHistory
+      tags: [fraud]
+      summary: Fetch recent signals and fraud evaluations mapped to a worker ID
+      parameters:
+        - name: worker_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: List of signal tracking history
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FraudAuditLog"
+
 components:
   schemas:
     HealthStatus:
@@ -966,3 +1029,180 @@ components:
         - zone_adjustment
         - worker_adjustment
         - explanation
+
+    FraudEvaluationRequest:
+      type: object
+      required:
+        - worker_id
+        - zone_id
+        - user_lat
+        - user_lng
+        - device_id
+      properties:
+        worker_id:
+          type: string
+          format: uuid
+          description: Unique identifier of the worker.
+        zone_id:
+          type: string
+          description: Identifier of the zone the worker claims to be disrupted in.
+        user_lat:
+          type: number
+          format: float
+          description: Worker's current latitude.
+        user_lng:
+          type: number
+          format: float
+          description: Worker's current longitude.
+        device_id:
+          type: string
+          description: Fingerprint ID of the user's mobile device for fraud checks.
+          
+    FraudPass1Response:
+      type: object
+      required:
+        - composite_score
+        - risk_status
+        - details
+      properties:
+        composite_score:
+          type: number
+          format: float
+          description: Weighted global score between 0.0 (safe) and 1.0 (fraud).
+        risk_status:
+          type: string
+          enum: [clear, amber, high_risk]
+          description: Calculated status mapping to threshold tiers.
+        details:
+          type: object
+          properties:
+            gps_match:
+              type: number
+              format: float
+            weather_correlation:
+              type: number
+              format: float
+            peer_activity:
+              type: number
+              format: float
+            historical_pattern:
+              type: number
+              format: float
+            device_fingerprint:
+              type: number
+              format: float
+
+    FraudEvaluationResult:
+      type: object
+      required:
+        - final_score
+        - resolution_tier
+        - individual_signal_scores
+        - signal_status
+        - critical_flags_fired
+        - critical_flag_signals
+        - worker_trust_score
+        - adaptive_threshold_used
+        - primary_elevated_signal
+        - pass2_triggered
+        - pass2_trigger_reason
+        - adversarial_elevated_count
+        - data_quality
+      properties:
+        final_score:
+          type: number
+          format: float
+        resolution_tier:
+          type: string
+        individual_signal_scores:
+          type: object
+          additionalProperties:
+            type: number
+            nullable: true
+        signal_status:
+          type: object
+          additionalProperties:
+            type: string
+            enum: [computed, missing_data, error]
+        critical_flags_fired:
+          type: boolean
+        critical_flag_signals:
+          type: array
+          items:
+            type: string
+        worker_trust_score:
+          type: number
+          format: float
+        adaptive_threshold_used:
+          type: number
+          format: float
+        primary_elevated_signal:
+          type: string
+        pass2_triggered:
+          type: boolean
+        pass2_trigger_reason:
+          type: string
+          enum: [pass1_clear, pass1_amber, pass1_high_risk]
+        adversarial_elevated_count:
+          type: integer
+          format: int32
+        data_quality:
+          type: object
+          required:
+            - available_signals
+            - total_signals
+            - availability_ratio
+          properties:
+            available_signals:
+              type: integer
+              format: int32
+            total_signals:
+              type: integer
+              format: int32
+            availability_ratio:
+              type: number
+              format: float
+          
+    FraudAuditLog:
+      type: object
+      required:
+        - id
+        - claim_id
+        - worker_id
+        - timestamp
+        - signals
+        - pass1_composite
+        - xgboost_score
+        - resolution_tier
+        - critical_flags
+        - model_version
+        - adaptive_threshold_applied
+      properties:
+        id:
+          type: string
+          format: uuid
+        claim_id:
+          type: string
+          format: uuid
+        worker_id:
+          type: string
+          format: uuid
+        timestamp:
+          type: string
+          format: date-time
+        signals:
+          type: object
+        pass1_composite:
+          type: string
+        pass2_composite:
+          type: string
+        xgboost_score:
+          type: string
+        resolution_tier:
+          type: string
+        critical_flags:
+          type: object
+        model_version:
+          type: string
+        adaptive_threshold_applied:
+          type: string

@@ -7,10 +7,10 @@ const router = Router();
 router.get("/zones", async (req, res) => {
   try {
     const zones = await db.select().from(zonesTable).orderBy(zonesTable.name);
-    res.json({ zones });
+    return res.json({ zones });
   } catch (err) {
     req.log.error({ err }, "Failed to list zones");
-    res.status(500).json({ error: "Failed to list zones" });
+    return res.status(500).json({ error: "Failed to list zones" });
   }
 });
 
@@ -18,10 +18,10 @@ router.get("/zones/:id", async (req, res) => {
   try {
     const [zone] = await db.select().from(zonesTable).where(eq(zonesTable.id, req.params.id));
     if (!zone) return res.status(404).json({ error: "Zone not found" });
-    res.json(zone);
+    return res.json(zone);
   } catch (err) {
     req.log.error({ err }, "Failed to get zone");
-    res.status(500).json({ error: "Failed to get zone" });
+    return res.status(500).json({ error: "Failed to get zone" });
   }
 });
 
@@ -40,10 +40,10 @@ router.patch("/zones/:id", async (req, res) => {
 
     const [updated] = await db.update(zonesTable).set(updates).where(eq(zonesTable.id, req.params.id)).returning();
     if (!updated) return res.status(404).json({ error: "Zone not found" });
-    res.json(updated);
+    return res.json(updated);
   } catch (err) {
     req.log.error({ err }, "Failed to update zone");
-    res.status(500).json({ error: "Failed to update zone" });
+    return res.status(500).json({ error: "Failed to update zone" });
   }
 });
 

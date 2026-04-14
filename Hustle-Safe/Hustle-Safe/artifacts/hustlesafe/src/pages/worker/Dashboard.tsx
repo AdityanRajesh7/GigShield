@@ -9,25 +9,10 @@ import { AlertTriangle, Clock, ShieldCheck, X, CloudRain, Sun, Cloud, Info, Zap,
 import { motion, AnimatePresence } from "framer-motion";
 import { useWalletBalance } from "@/hooks/useWallet";
 import { useLocation } from "wouter";
+import { cn } from "@/lib/utils";
 
-const fallbackHourlyForecast = [
-  { time: '08:00', Koramangala: 32, Indiranagar: 28, Whitefield: 20, Electronic_City: 15, HSR_Layout: 25, BTM_Layout: 30, Marathahalli: 22, Jayanagar: 18 },
-  { time: '10:00', Koramangala: 35, Indiranagar: 30, Whitefield: 22, Electronic_City: 18, HSR_Layout: 28, BTM_Layout: 32, Marathahalli: 25, Jayanagar: 20 },
-  { time: '12:00', Koramangala: 40, Indiranagar: 35, Whitefield: 25, Electronic_City: 20, HSR_Layout: 30, BTM_Layout: 35, Marathahalli: 28, Jayanagar: 22 },
-  { time: '14:00', Koramangala: 55, Indiranagar: 45, Whitefield: 30, Electronic_City: 25, HSR_Layout: 40, BTM_Layout: 45, Marathahalli: 35, Jayanagar: 28 },
-  { time: '16:00', Koramangala: 86, Indiranagar: 78, Whitefield: 45, Electronic_City: 35, HSR_Layout: 65, BTM_Layout: 75, Marathahalli: 50, Jayanagar: 40 },
-  { time: '18:00', Koramangala: 60, Indiranagar: 55, Whitefield: 35, Electronic_City: 28, HSR_Layout: 45, BTM_Layout: 50, Marathahalli: 40, Jayanagar: 35 },
-  { time: '20:00', Koramangala: 45, Indiranagar: 40, Whitefield: 28, Electronic_City: 22, HSR_Layout: 35, BTM_Layout: 40, Marathahalli: 30, Jayanagar: 25 },
-  { time: '22:00', Koramangala: 30, Indiranagar: 28, Whitefield: 20, Electronic_City: 15, HSR_Layout: 25, BTM_Layout: 30, Marathahalli: 22, Jayanagar: 18 },
-];
+// Removed fallback constants in favor of backend-only data flow
 
-const fallbackPremium = {
-  current_premium: 28.50,
-  base_premium: 25.00,
-  zone_adjustment: 5.50,
-  worker_adjustment: -2.00,
-  explanation: "Your premium is ₹28.50 this week because high disruption (GDS 86) is forecasted in your zone.",
-};
 
 const getRiskIcon = (score: number) => {
   if (score >= 80) return <AlertTriangle className="w-6 h-6 text-destructive" />;
@@ -74,7 +59,9 @@ export function WorkerDashboard() {
   const { wallet } = useWalletBalance(worker?.id);
 
   const [hourlyForecast, setHourlyForecast] = useState<any[]>([]);
-  const [premiumData, setPremiumData] = useState<any>(fallbackPremium);
+  const [premiumData, setPremiumData] = useState<any>(null);
+  const [workerStats, setWorkerStats] = useState<any>(null);
+  const [isStationarySim, setIsStationarySim] = useState(false); // S8 Simulation state
 
   const workerZone = worker?.zone_id ? worker.zone_id.replace("_", " ") : "Koramangala";
 
@@ -84,9 +71,10 @@ export function WorkerDashboard() {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 3000);
 
-        const [premiumRes, forecastRes] = await Promise.all([
+        const [premiumRes, forecastRes, statsRes] = await Promise.all([
           fetch(`/api/premium/history/${worker?.id || 'worker-123'}`, { signal: controller.signal }).catch(() => null),
-          fetch('/api/zones/forecast/24-hour', { signal: controller.signal }).catch(() => null)
+          fetch('/api/zones/forecast/24-hour', { signal: controller.signal }).catch(() => null),
+          fetch(`/api/workers/${worker?.id}/statistics`, { signal: controller.signal }).catch(() => null)
         ]);
         clearTimeout(timeoutId);
 
@@ -95,15 +83,17 @@ export function WorkerDashboard() {
           setPremiumData(data);
         }
 
-        let rawHourlyData = fallbackHourlyForecast;
-        if (forecastRes && forecastRes.ok) {
-          const data = await forecastRes.json();
-          if (data.forecast) rawHourlyData = data.forecast;
+        if (statsRes && statsRes.ok) {
+          const data = await statsRes.json();
+          setWorkerStats(data);
         }
 
-        setHourlyForecast(getRotatedForecast(rawHourlyData));
+        if (forecastRes && forecastRes.ok) {
+          const data = await forecastRes.json();
+          if (data.forecast) setHourlyForecast(getRotatedForecast(data.forecast));
+        }
       } catch (error) {
-        setHourlyForecast(getRotatedForecast(fallbackHourlyForecast));
+        console.error("Failed to fetch dashboard data", error);
       }
     };
     fetchWorkerData();
@@ -125,18 +115,99 @@ export function WorkerDashboard() {
     if (isDanger) setHideAlert(false);
   }, [isDanger]);
 
+  // Periodic Telemetry Ping (Aligned with S7/S12 requirements)
+  useEffect(() => {
+    if (!worker?.id) return;
+
+    const sendPing = async () => {
+      try {
+        // ACTUAL GEOLOCATION: No more mock coordinates.
+        // If permission is denied, signals will report null/safe defaults.
+        navigator.geolocation.getCurrentPosition(async (position) => {
+          const { latitude, longitude, accuracy } = position.coords;
+
+          // S8 Simulation: Since browsers can't give raw sensor variance with fidelity, 
+          // we simulate the payload based on the UI toggle clearly labeled as 'Simulation'.
+          const accelerometerVariance = isStationarySim ? 0.02 : 1.45;
+
+          await fetch(`/api/workers/${worker.id}/ping`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              lat: latitude,
+              lng: longitude,
+              accuracy: accuracy,
+              cell_lat: null, // Cell tower data unavailable in browser environment
+              cell_lng: null,
+              accelerometer: accelerometerVariance,
+              session_active: true,
+              zone_id: worker.zone_id
+            })
+          });
+        }, (err) => {
+          console.warn("Location permission denied or error. Sending heart-beat only.", err);
+          // Send heartbeat without GPS if denied - backend handles nulls as safe 0.0
+          fetch(`/api/workers/${worker.id}/ping`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              lat: null,
+              lng: null,
+              session_active: true,
+              zone_id: worker.zone_id
+            })
+          }).catch(() => {});
+        }, { enableHighAccuracy: true });
+      } catch (err) {
+        console.error("Telemetry scheduling failed", err);
+      }
+    };
+
+    sendPing(); // Initial ping
+    const interval = setInterval(sendPing, 60000); // Ping every 60s
+    return () => clearInterval(interval);
+  }, [worker, zone]);
+
   return (
     <AppLayout>
       <div className="space-y-8 pb-12">
 
         {/* Full Width Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <h1 className="text-3xl font-display font-bold">Hello, {worker?.name || 'Rajesh'}!</h1>
             <p className="text-muted-foreground text-sm flex items-center gap-1 mt-1">
               <Zap className="w-4 h-4 text-primary" /> Active in {workerZone.toUpperCase()}
             </p>
           </div>
+          
+          {/* S8 SIMULATION TOGGLE - CLEARLY LABELED */}
+          <div className="flex items-center gap-3 bg-card border border-border px-4 py-2 rounded-2xl shadow-sm">
+            <div className="flex flex-col">
+              <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest leading-none mb-1">
+                S8 Simulation
+              </span>
+              <span className="text-[10px] font-bold text-primary uppercase">
+                {isStationarySim ? "Stationary" : "Active Motion"}
+              </span>
+            </div>
+            <button 
+              onClick={() => setIsStationarySim(!isStationarySim)}
+              className={cn(
+                "relative w-12 h-6 rounded-full transition-colors duration-200 outline-none",
+                isStationarySim ? "bg-destructive/20" : "bg-success/20"
+              )}
+            >
+              <div className={cn(
+                "absolute top-1 left-1 w-4 h-4 rounded-full transition-transform duration-200",
+                isStationarySim ? "translate-x-6 bg-destructive" : "bg-success"
+              )} />
+            </button>
+            <div className="bg-muted p-1.5 rounded-full" title="This toggle simulates accelerometer variance for the S8 fraud signal demonstration.">
+              <Info className="w-3.5 h-3.5 text-muted-foreground" />
+            </div>
+          </div>
+
           <div className="bg-success/10 text-success p-3 rounded-full hidden md:block">
             <ShieldCheck className="w-8 h-8" />
           </div>
@@ -181,7 +252,7 @@ export function WorkerDashboard() {
 
             <div className="flex items-end gap-2 mb-6 relative z-10">
               <div className="text-5xl font-display font-bold text-foreground">
-                ₹{premiumData.current_premium.toFixed(2)}
+                ₹{premiumData?.current_premium ? premiumData.current_premium.toFixed(2) : '0.00'}
               </div>
               <div className="text-base font-bold text-muted-foreground pb-1.5">/ week</div>
             </div>
@@ -189,7 +260,7 @@ export function WorkerDashboard() {
             <div className="bg-muted/50 p-4 rounded-xl border border-border/50 flex gap-3 items-start relative z-10">
               <Info className="w-5 h-5 text-primary shrink-0 mt-0.5" />
               <p className="text-sm text-muted-foreground font-medium leading-relaxed">
-                {premiumData.explanation}
+                {premiumData?.explanation || "Wait for the Sunday AI pricing cycle to complete."}
               </p>
             </div>
           </div>
@@ -254,8 +325,8 @@ export function WorkerDashboard() {
               </div>
               <div>
                 <div className="text-sm text-muted-foreground font-bold uppercase tracking-widest mb-1.5">Active Policy</div>
-                <div className="text-3xl font-display font-bold">{worker?.policy_tier || 'Standard'} Tier</div>
-                <div className="text-sm text-success font-medium mt-2">₹800/day coverage cap</div>
+                <div className="text-3xl font-display font-bold">{workerStats?.policy_tier || worker?.policy_tier || 'Standard'} Tier</div>
+                <div className="text-sm text-success font-medium mt-2">₹{workerStats?.coverage_cap || '800'}/day coverage cap</div>
               </div>
             </div>
 
@@ -266,7 +337,7 @@ export function WorkerDashboard() {
               <div>
                 <div className="text-sm text-muted-foreground font-bold uppercase tracking-widest mb-1.5">Wallet Balance</div>
                 <div className="text-3xl font-display font-bold">
-                  {wallet ? `₹${parseFloat(wallet.balance).toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '—'}
+                  {wallet && !isNaN(parseFloat(wallet.balance)) ? `₹${parseFloat(wallet.balance).toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '—'}
                 </div>
                 <div className="text-sm text-primary font-medium mt-2 flex items-center gap-1 group-hover:gap-2 transition-all">
                   View & Withdraw <ArrowUpRight className="w-3.5 h-3.5" />
@@ -291,7 +362,7 @@ export function WorkerDashboard() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/50">
-                {claimsData?.claims?.slice(0, 4).map(claim => (
+                {claimsData?.claims?.slice(0, 4).map((claim: any) => (
                   <tr key={claim.id} className="hover:bg-muted/30 transition-colors">
                     <td className="px-6 py-4 font-medium">
                       {format(new Date(claim.created_at), 'MMM dd')}
