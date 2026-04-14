@@ -1,7 +1,8 @@
 import { Router } from "express";
-import { db, zonesTable, workersTable, policiesTable, claimsTable, disruptionEventsTable } from "@workspace/db";
+import { db, zonesTable, workersTable, policiesTable, claimsTable, disruptionEventsTable, walletsTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import { broadcastNotification } from "./notifications.js";
+import { creditWallet } from "../lib/wallet.js";
 
 const router = Router();
 
@@ -95,11 +96,29 @@ router.post("/simulator/trigger", async (req, res) => {
       .where(and(eq(workersTable.zone_id, zone_id), eq(workersTable.is_active, true)));
 
     let claimsCreated = 0;
+    const tierCaps: Record<string, string> = { basic: "400.00", standard: "800.00", pro: "1500.00" };
+    const tierPremiums: Record<string, string> = { basic: "15.00", standard: "28.50", pro: "45.00" };
+
     for (const worker of workers) {
-      const [policy] = await db.select().from(policiesTable)
+      let [policy] = await db.select().from(policiesTable)
         .where(and(eq(policiesTable.worker_id, worker.id), eq(policiesTable.status, "active")));
 
-      if (!policy) continue;
+      // Auto-provision a policy if the worker doesn't have one yet
+      if (!policy) {
+        try {
+          [policy] = await db.insert(policiesTable).values({
+            worker_id: worker.id,
+            tier: worker.policy_tier || "standard",
+            weekly_premium: tierPremiums[worker.policy_tier] || "28.50",
+            coverage_cap: tierCaps[worker.policy_tier] || "800.00",
+            status: "active",
+            zone_id: zone_id,
+          }).returning();
+        } catch (policyErr) {
+          req.log.error({ err: policyErr, workerId: worker.id }, "Failed to auto-provision policy during disruption");
+          continue;
+        }
+      }
 
       const hoursAffected = (duration_minutes / 60).toFixed(2);
       const coverageCap = parseFloat(policy.coverage_cap);
@@ -169,11 +188,31 @@ router.post("/simulator/resolve/:zoneId", async (req, res) => {
 
     if (!zone) return res.status(404).json({ error: "Zone not found" });
 
-    // Mark auto_approved claims as paid
-    await db.update(claimsTable).set({
+    // Mark auto_approved claims as paid and credit wallets
+    const claimsToPay = await db.update(claimsTable).set({
       status: "paid",
       paid_at: new Date(),
-    }).where(and(eq(claimsTable.zone_id, zoneId), eq(claimsTable.status, "auto_approved")));
+    }).where(and(eq(claimsTable.zone_id, zoneId), eq(claimsTable.status, "auto_approved"))).returning();
+
+    for (const claim of claimsToPay) {
+      if (claim.payout_amount && parseFloat(claim.payout_amount) > 0) {
+        try {
+          const [wallet] = await db.select().from(walletsTable).where(eq(walletsTable.worker_id, claim.worker_id)).limit(1);
+          if (wallet) {
+            await creditWallet(
+              wallet.id,
+              claim.worker_id,
+              claim.payout_amount,
+              "claim_payout",
+              claim.id,
+              `Claim payout — ${claim.disruption_type?.replace(/_/g, " ") || "disruption event"}`
+            );
+          }
+        } catch (walletErr) {
+          req.log.error({ err: walletErr, claimId: claim.id }, "Failed to credit wallet during simulation resolve");
+        }
+      }
+    }
 
     broadcastNotification({
       id: Date.now().toString(),

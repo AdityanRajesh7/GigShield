@@ -47,11 +47,11 @@ export function ZoneCard({ zone, onClick, selected, hasTimer }: ZoneCardProps) {
         isDanger && "pulsing-danger",
       )}
     >
-      <div className="flex justify-between items-start w-full">
-        <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
+      <div className="flex justify-between items-start w-full gap-2 overflow-hidden">
+        <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground truncate min-w-0">
           {zone.name.replace("_", " ")}
         </h3>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           {hasTimer && (
             <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-primary/10 text-primary border border-primary/20">
               <Clock className="w-3 h-3" />
@@ -60,11 +60,11 @@ export function ZoneCard({ zone, onClick, selected, hasTimer }: ZoneCardProps) {
           )}
           <span
             className={cn(
-              "px-2 py-1 rounded-full text-[10px] font-bold uppercase flex items-center gap-1.5",
+              "px-2 py-1 rounded-full text-[10px] font-bold uppercase flex items-center gap-1.5 whitespace-nowrap",
               statusColor,
             )}
           >
-            <span className={cn("w-1.5 h-1.5 rounded-full", statusDot)} />
+            <span className={cn("w-1.5 h-1.5 rounded-full shrink-0", statusDot)} />
             {zone.status}
           </span>
         </div>

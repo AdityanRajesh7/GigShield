@@ -124,21 +124,24 @@ export function InsurerDashboard() {
     const updatedZones = zonesData.zones.map((zone: any) => {
       const safeKey = zone.name.replace(" ", "_");
       // Use the AI's prediction for this exact hour
-      const aiScore = currentHourData[safeKey] || zone.gds_score;
+      const aiScore = currentHourData[safeKey] || 0;
+
+      // Use whichever is higher: real backend score (disruption) or AI prediction
+      const finalScore = Math.max(zone.gds_score, aiScore);
 
       // AUTONOMOUS TRIGGER LOGIC
       let computedStatus = zone.status;
 
-      // If there is NO manual timer running, let the AI dictate the status autonomously
+      // If there is NO manual timer running, let the highest score dictate the status
       if (!activeTimers[zone.id]) {
-        if (aiScore >= 80) computedStatus = 'disrupted';
-        else if (aiScore >= 60) computedStatus = 'warning';
+        if (finalScore >= 80) computedStatus = 'disrupted';
+        else if (finalScore >= 60) computedStatus = 'warning';
         else computedStatus = 'active';
       }
 
       return {
         ...zone,
-        gds_score: aiScore,
+        gds_score: finalScore,
         status: computedStatus
       };
     });

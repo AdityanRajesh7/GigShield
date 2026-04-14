@@ -3,7 +3,7 @@ import { Link, useLocation } from "wouter";
 import { 
   LayoutDashboard, Shield, FileText, CreditCard, 
   Map as MapIcon, Activity, ClipboardList, BarChart2, 
-  Users, LogOut, Bell, Settings as SettingsIcon
+  Users, LogOut, Bell, Settings as SettingsIcon, Wallet
 } from "lucide-react";
 import { useAuth } from "@/store/auth";
 import { cn } from "@/lib/utils";
@@ -28,6 +28,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
     { name: "Overview", href: "/dashboard", icon: LayoutDashboard },
     { name: "My Policy", href: "/policy", icon: Shield },
     { name: "Claims", href: "/claims", icon: FileText },
+    { name: "Wallet", href: "/wallet", icon: Wallet },
     { name: "Live Map", href: "/map", icon: MapIcon },
     { name: "Settings", href: "/settings", icon: SettingsIcon },
   ];

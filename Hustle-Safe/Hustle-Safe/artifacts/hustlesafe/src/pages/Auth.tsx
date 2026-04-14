@@ -231,25 +231,66 @@ export function Auth() {
       const fbUser = buildFirebaseUser(credential.user);
 
       if (workerData) {
+        // Existing worker found by phone — use that record directly
         loginWorker(workerData, fbUser);
       } else {
-        loginWorker(
-          {
-            id: credential.user.uid,
-            name:
-              workerName || credential.user.displayName || "Delivery Partner",
-            phone: credential.user.phoneNumber || cleanPhone,
-            platform: "zomato",
-            zone_id: "koramangala",
-            platform_rating: 0,
-            policy_tier: "basic",
-            is_active: true,
-            fraud_score: 0,
-            account_age_days: 0,
-            created_at: new Date().toISOString(),
-          },
-          fbUser,
-        );
+        // No worker found in DB — create one on the backend so the simulator,
+        // wallet, and claims systems all recognise this user
+        const newWorkerPayload = {
+          name: workerName || credential.user.displayName || "Delivery Partner",
+          phone: credential.user.phoneNumber || cleanPhone,
+          platform: "zomato",
+          zone_id: "koramangala",
+          policy_tier: "basic",
+        };
+
+        try {
+          const res = await fetch(`/api/workers`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(newWorkerPayload),
+          });
+          if (res.ok) {
+            const createdWorker = await res.json();
+            loginWorker(createdWorker, fbUser);
+          } else {
+            // Backend creation failed (maybe duplicate phone) — fall back to local object
+            loginWorker(
+              {
+                id: credential.user.uid,
+                name: newWorkerPayload.name,
+                phone: newWorkerPayload.phone,
+                platform: "zomato",
+                zone_id: "koramangala",
+                platform_rating: 0,
+                policy_tier: "basic",
+                is_active: true,
+                fraud_score: 0,
+                account_age_days: 0,
+                created_at: new Date().toISOString(),
+              },
+              fbUser,
+            );
+          }
+        } catch {
+          // Network error — fall back to local object
+          loginWorker(
+            {
+              id: credential.user.uid,
+              name: newWorkerPayload.name,
+              phone: newWorkerPayload.phone,
+              platform: "zomato",
+              zone_id: "koramangala",
+              platform_rating: 0,
+              policy_tier: "basic",
+              is_active: true,
+              fraud_score: 0,
+              account_age_days: 0,
+              created_at: new Date().toISOString(),
+            },
+            fbUser,
+          );
+        }
       }
 
       toast.success(mode === "signup" ? "Account created!" : "Welcome back!", {

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { CheckCircle2, Shield } from "lucide-react";
@@ -9,15 +9,48 @@ export function WorkerPolicy() {
   const { worker } = useAuth();
   const [isUpdating, setIsUpdating] = useState(false);
 
-  const handleUpgradeProcess = async (tierName: string) => {
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("success")) {
+      const tier = params.get("tier");
+      toast.success(`Successfully upgraded to ${tier} tier!`);
+      // Clean up the URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else if (params.get("canceled")) {
+      toast.error("Checkout was canceled.");
+      // Clean up the URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, []);
+
+  const handleUpgradeProcess = async (tierName: string, price: number) => {
     setIsUpdating(true);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 800));
-      toast.success(`Successfully upgraded to ${tierName} tier`);
-    } catch {
-      toast.error("Failed to upgrade policy");
-    } finally {
-      setIsUpdating(false);
+      // Using absolute URL to point to backend server since frontend is on 5173
+      const response = await fetch("http://localhost:5000/api/stripe/create-checkout-session", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ tier: tierName, price }),
+      });
+
+      if (!response.ok) {
+        let errorData = "Checkout session creation failed";
+        try {
+          const resJson = await response.json();
+          if (resJson.error) errorData = resJson.error;
+        } catch (_) {}
+        throw new Error(errorData);
+      }
+
+      const { url } = await response.json();
+      if (url) {
+        window.location.href = url; // Redirect to Stripe Checkout
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Failed to initiate checkout");
+      setIsUpdating(false); // Only set to false on error, if success we are redirecting away
     }
   };
   
@@ -96,7 +129,7 @@ export function WorkerPolicy() {
                     variant={isActive ? "outline" : "default"} 
                     className="w-full rounded-xl" 
                     disabled={isActive || isUpdating}
-                    onClick={() => handleUpgradeProcess(tier.name)}
+                    onClick={() => handleUpgradeProcess(tier.name, tier.price)}
                   >
                     {isActive ? "Currently Active" : isUpdating ? "Upgrading..." : `Upgrade to ${tier.name}`}
                   </Button>

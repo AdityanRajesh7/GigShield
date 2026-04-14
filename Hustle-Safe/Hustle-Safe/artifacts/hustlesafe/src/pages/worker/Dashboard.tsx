@@ -5,8 +5,10 @@ import { useGetZone, useListClaims } from "@workspace/api-client-react";
 import { GDSGauge } from "@/components/GDSGauge";
 import { ClaimBadge } from "@/components/ClaimBadge";
 import { format } from "date-fns";
-import { AlertTriangle, Clock, ShieldCheck, X, CloudRain, Sun, Cloud, Info, Zap, Wallet } from "lucide-react";
+import { AlertTriangle, Clock, ShieldCheck, X, CloudRain, Sun, Cloud, Info, Zap, Wallet, ArrowUpRight } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useWalletBalance } from "@/hooks/useWallet";
+import { useLocation } from "wouter";
 
 const fallbackHourlyForecast = [
   { time: '08:00', Koramangala: 32, Indiranagar: 28, Whitefield: 20, Electronic_City: 15, HSR_Layout: 25, BTM_Layout: 30, Marathahalli: 22, Jayanagar: 18 },
@@ -64,10 +66,12 @@ const getRotatedForecast = (data: any[]) => {
 
 export function WorkerDashboard() {
   const { worker } = useAuth();
+  const [, navigate] = useLocation();
   const [hideAlert, setHideAlert] = useState(false);
 
   const { data: zone } = useGetZone(worker?.zone_id || 'koramangala', { query: { refetchInterval: 3000, enabled: !!worker } as any });
   const { data: claimsData } = useListClaims({ worker_id: worker?.id }, { query: { refetchInterval: 5000, enabled: !!worker } as any });
+  const { wallet } = useWalletBalance(worker?.id);
 
   const [hourlyForecast, setHourlyForecast] = useState<any[]>([]);
   const [premiumData, setPremiumData] = useState<any>(fallbackPremium);
@@ -105,10 +109,15 @@ export function WorkerDashboard() {
     fetchWorkerData();
   }, [worker]);
 
-  // Extract the true current AI score to drive the UI completely autonomously
-  const currentAIScore = hourlyForecast.length > 0
-    ? getScoreForZone(hourlyForecast[0], workerZone, zone?.gds_score || 25)
-    : (zone?.gds_score || 25);
+  // Determine the current risk score:
+  // - The live zone.gds_score (refreshed every 3s from backend) reflects REAL disruptions triggered by the simulator
+  // - The AI hourly forecast is a prediction — it should never mask an active disruption
+  // So we use whichever is higher: the real backend score or the AI prediction
+  const backendScore = zone?.gds_score ?? 25;
+  const forecastScore = hourlyForecast.length > 0
+    ? getScoreForZone(hourlyForecast[0], workerZone, 0)
+    : 0;
+  const currentAIScore = Math.max(backendScore, forecastScore);
 
   const isDanger = currentAIScore >= 60;
 
@@ -250,14 +259,18 @@ export function WorkerDashboard() {
               </div>
             </div>
 
-            <div className="bg-card rounded-3xl p-6 border border-border shadow-sm flex flex-col justify-center">
-              <div className="w-12 h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center mb-6">
+            <div className="bg-card rounded-3xl p-6 border border-border shadow-sm flex flex-col justify-center cursor-pointer group hover:border-primary/30 hover:shadow-md transition-all" onClick={() => navigate('/wallet')}>
+              <div className="w-12 h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center mb-6 group-hover:scale-105 transition-transform">
                 <Wallet className="w-6 h-6" />
               </div>
               <div>
-                <div className="text-sm text-muted-foreground font-bold uppercase tracking-widest mb-1.5">YTD Payouts</div>
-                <div className="text-3xl font-display font-bold">₹2,450</div>
-                <div className="text-sm text-muted-foreground font-medium mt-2">3 events this year</div>
+                <div className="text-sm text-muted-foreground font-bold uppercase tracking-widest mb-1.5">Wallet Balance</div>
+                <div className="text-3xl font-display font-bold">
+                  {wallet ? `₹${parseFloat(wallet.balance).toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '—'}
+                </div>
+                <div className="text-sm text-primary font-medium mt-2 flex items-center gap-1 group-hover:gap-2 transition-all">
+                  View & Withdraw <ArrowUpRight className="w-3.5 h-3.5" />
+                </div>
               </div>
             </div>
           </div>

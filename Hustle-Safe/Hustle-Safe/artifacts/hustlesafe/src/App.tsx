@@ -10,6 +10,7 @@ import { Auth } from "./pages/Auth";
 import { WorkerDashboard } from "./pages/worker/Dashboard";
 import { WorkerPolicy } from "./pages/worker/Policy";
 import { WorkerClaims } from "./pages/worker/Claims";
+import { WorkerWallet } from "./pages/worker/Wallet";
 import { LiveMap } from "./pages/shared/LiveMap";
 import { Settings } from "./pages/shared/Settings";
 
@@ -82,6 +83,7 @@ function Router() {
       <Route path="/dashboard"><ProtectedRoute component={WorkerDashboard} roleRequired="worker" /></Route>
       <Route path="/policy"><ProtectedRoute component={WorkerPolicy} roleRequired="worker" /></Route>
       <Route path="/claims"><ProtectedRoute component={WorkerClaims} roleRequired="worker" /></Route>
+      <Route path="/wallet"><ProtectedRoute component={WorkerWallet} roleRequired="worker" /></Route>
       
       {/* Shared Route */}
       <Route path="/map"><ProtectedRoute component={LiveMap} /></Route>

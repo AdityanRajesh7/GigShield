@@ -15,10 +15,8 @@ export function useNotifications() {
   const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
-    // Determine the base url from environment, or use default localhost
-    const baseUrl = import.meta.env.VITE_API_URL || "http://localhost:5000";
-    
-    const eventSource = new EventSource(`${baseUrl}/api/notifications/stream`);
+    // Use relative path so Vite proxy (dev) or same-origin (prod) handles the route
+    const eventSource = new EventSource(`/api/notifications/stream`);
 
     eventSource.onmessage = (event) => {
       try {

@@ -103,9 +103,13 @@ export function LiveMap() {
     const updatedZones = zonesData.zones.map((zone: any) => {
       // Key lookup: "zone.name.replace(' ', '_')" — identical to Dashboard
       const safeKey = zone.name.replace(" ", "_");
-      const aiScore = currentHourData[safeKey] || zone.gds_score;
+      const aiScore = currentHourData[safeKey] || 0;
 
-      return { ...zone, gds_score: aiScore };
+      // Use whichever is higher: real backend score (disruption) or AI prediction
+      // This ensures triggered disruptions are NEVER hidden by lower AI forecasts
+      const finalScore = Math.max(zone.gds_score, aiScore);
+
+      return { ...zone, gds_score: finalScore };
     });
 
     setLiveZones(updatedZones);
