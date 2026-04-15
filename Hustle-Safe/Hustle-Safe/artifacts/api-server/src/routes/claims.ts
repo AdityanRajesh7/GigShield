@@ -1,6 +1,6 @@
 import { Router } from "express";
-import { db, claimsTable, workersTable, zonesTable, walletsTable } from "@workspace/db";
-import { eq, sql, and } from "drizzle-orm";
+import { db, claimsTable, workersTable, zonesTable, walletsTable, fraudAuditLogTable } from "@workspace/db";
+import { eq, sql, and, desc } from "drizzle-orm";
 import { broadcastNotification } from "./notifications.js";
 import { creditWallet } from "../lib/wallet.js";
 

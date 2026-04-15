@@ -1,7 +1,7 @@
 import { db, zonesTable, workersTable, claimsTable, gpsHistoryTable, policiesTable } from "@workspace/db";
 import { eq, ne, and, sql, gte, lte } from "drizzle-orm";
 import celery from "celery-node";
-import { redis } from "./redis";
+import { redis, isRedisAvailable } from "./redis"; // Safe no-op wrapper when Redis is unavailable
 import { logger } from "./logger";
 
 export type SignalStatus = "computed" | "missing_data" | "error";
@@ -428,28 +428,32 @@ export async function runPass2Scorer(context: FraudPass2Context): Promise<FraudP
     critical_flag: false,
   };
 
-  try {
-    const celeryClient = celery.createClient(
-      process.env.REDIS_URL || "redis://localhost:6379/0",
-      process.env.REDIS_URL || "redis://localhost:6379/0",
-    );
+  if (isRedisAvailable()) {
+    try {
+      const celeryClient = celery.createClient(
+        process.env.REDIS_URL || "redis://localhost:6379/0",
+        process.env.REDIS_URL || "redis://localhost:6379/0",
+      );
 
-    const task = celeryClient.createTask("tasks.evaluate_pass_two_ml");
-    const asyncResult = task.applyAsync([{
-      worker_id: context.worker_id,
-      gps_trace: context.gps_trace,
-      gps_lat: context.user_lat,
-      gps_lng: context.user_lng,
-      cell_lat: context.cell_lat,
-      cell_lng: context.cell_lng,
-      accelerometer: context.accelerometer,
-      context_edges: context.context_edges,
-      accuracies: context.accuracies,
-    }]);
+      const task = celeryClient.createTask("tasks.evaluate_pass_two_ml");
+      const resultHandle = task.applyAsync([{
+        worker_id: context.worker_id,
+        gps_trace: context.gps_trace,
+        gps_lat: context.user_lat,
+        gps_lng: context.user_lng,
+        cell_lat: context.cell_lat,
+        cell_lng: context.cell_lng,
+        accelerometer: context.accelerometer,
+        context_edges: context.context_edges,
+        accuracies: context.accuracies,
+      }]);
 
-    mlResult = await asyncResult.get(10000);
-  } catch (err) {
-    logger.error({ err }, "Celery ML task failed");
+      const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), 8000));
+      const result = await Promise.race([resultHandle.get(8000), timeout]);
+      if (result !== null) mlResult = result;
+    } catch (err) {
+      logger.warn("Celery ML unavailable, using rule-based signals only");
+    }
   }
 
   const details = {

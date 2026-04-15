@@ -173,15 +173,19 @@ export async function evaluateFraudClaim(context: FraudPass2Context): Promise<Fi
       process.env.REDIS_URL || "redis://localhost:6379/0",
     );
     const task = celeryClient.createTask("tasks.evaluate_pipeline_xgb");
-    const asyncResult = task.applyAsync([signals]);
-    const mlResult = await asyncResult.get(5000);
+    const resultHandle = task.applyAsync([signals]);
+
+    // Race: result vs 5-second timeout — don't block disruption trigger
+    const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), 5000));
+    const mlResult = await Promise.race([resultHandle.get(5000), timeout]);
 
     if (mlResult?.fraud_probability !== null && mlResult?.fraud_probability !== undefined) {
       const parsed = Number(mlResult.fraud_probability);
       xgbScore = Number.isFinite(parsed) ? clamp01(parsed) : null;
     }
   } catch (err) {
-    logger.error({ err }, "XGB inference failed");
+    // Celery / Redis not available — XGB score will be null, blended score will be used
+    logger.warn("XGB inference unavailable, using rule-based blend only");
   }
 
   const trustScore = await computeAndUpdateTrustScore(context.worker_id);

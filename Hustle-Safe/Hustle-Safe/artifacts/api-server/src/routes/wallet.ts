@@ -14,14 +14,16 @@ const router = Router();
 // ---------------------------------------------------------------------------
 // GET /wallet/:workerId — wallet balance + metadata
 // ---------------------------------------------------------------------------
-router.get("/wallet/:workerId", async (req: Request, res: Response) => {
+router.get("/wallet/:workerId", async (req: Request, res: Response): Promise<void> => {
   try {
-    const wallet = await getWalletByWorker(req.params.workerId);
+    const workerId = String(req.params.workerId);
+    const wallet = await getWalletByWorker(workerId);
     if (!wallet) {
       // Auto-provision if missing (e.g. legacy workers created before wallet feature)
       const { provisionWallet } = await import("../lib/wallet.js");
-      const provisioned = await provisionWallet(req.params.workerId);
-      return res.json(provisioned);
+      const provisioned = await provisionWallet(workerId);
+      res.json(provisioned);
+      return;
     }
     res.json(wallet);
   } catch (err) {
@@ -33,12 +35,16 @@ router.get("/wallet/:workerId", async (req: Request, res: Response) => {
 // ---------------------------------------------------------------------------
 // GET /wallet/:workerId/transactions — paginated transaction ledger
 // ---------------------------------------------------------------------------
-router.get("/wallet/:workerId/transactions", async (req: Request, res: Response) => {
+router.get("/wallet/:workerId/transactions", async (req: Request, res: Response): Promise<void> => {
   try {
+    const workerId = String(req.params.workerId);
     const { limit = "20", offset = "0" } = req.query as Record<string, string>;
 
-    const wallet = await getWalletByWorker(req.params.workerId);
-    if (!wallet) return res.status(404).json({ error: "Wallet not found" });
+    const wallet = await getWalletByWorker(workerId);
+    if (!wallet) {
+      res.status(404).json({ error: "Wallet not found" });
+      return;
+    }
 
     const transactions = await db
       .select()
@@ -63,37 +69,46 @@ router.get("/wallet/:workerId/transactions", async (req: Request, res: Response)
 // ---------------------------------------------------------------------------
 // POST /wallet/:workerId/withdraw — initiate UPI withdrawal
 // ---------------------------------------------------------------------------
-router.post("/wallet/:workerId/withdraw", async (req: Request, res: Response) => {
+router.post("/wallet/:workerId/withdraw", async (req: Request, res: Response): Promise<void> => {
   try {
+    const workerId = String(req.params.workerId);
     const { amount } = req.body as { amount?: number | string };
 
     if (!amount || parseFloat(String(amount)) <= 0) {
-      return res.status(400).json({ error: "A positive amount is required" });
+      res.status(400).json({ error: "A positive amount is required" });
+      return;
     }
 
     // Verify worker exists and has a UPI ID
     const [worker] = await db
       .select()
       .from(workersTable)
-      .where(eq(workersTable.id, req.params.workerId))
+      .where(eq(workersTable.id, workerId))
       .limit(1);
 
-    if (!worker) return res.status(404).json({ error: "Worker not found" });
+    if (!worker) {
+      res.status(404).json({ error: "Worker not found" });
+      return;
+    }
 
     if (!worker.upi_id) {
-      return res.status(400).json({
+      res.status(400).json({
         error: "No UPI ID configured. Please update your UPI ID in Settings before withdrawing.",
         code: "NO_UPI_ID",
       });
+      return;
     }
 
-    const wallet = await getWalletByWorker(req.params.workerId);
-    if (!wallet) return res.status(404).json({ error: "Wallet not found" });
+    const wallet = await getWalletByWorker(workerId);
+    if (!wallet) {
+      res.status(404).json({ error: "Wallet not found" });
+      return;
+    }
 
     const amountStr = parseFloat(String(amount)).toFixed(2);
     const result = await debitWallet(
       wallet.id,
-      req.params.workerId,
+      workerId,
       amountStr,
       "withdrawal",
       worker.upi_id,
@@ -101,7 +116,8 @@ router.post("/wallet/:workerId/withdraw", async (req: Request, res: Response) =>
     );
 
     if (!result) {
-      return res.status(400).json({ error: "Insufficient balance" });
+      res.status(400).json({ error: "Insufficient balance" });
+      return;
     }
 
     res.json({
@@ -119,12 +135,14 @@ router.post("/wallet/:workerId/withdraw", async (req: Request, res: Response) =>
 // GET /wallet/:workerId/stream — SSE stream for real-time wallet events
 // ---------------------------------------------------------------------------
 router.get("/wallet/:workerId/stream", (req: Request, res: Response) => {
+  const workerId = String(req.params.workerId);
+
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");
 
   // Send initial connected event with current balance
-  getWalletByWorker(req.params.workerId)
+  getWalletByWorker(workerId)
     .then((wallet) => {
       res.write(
         `data: ${JSON.stringify({
@@ -138,8 +156,8 @@ router.get("/wallet/:workerId/stream", (req: Request, res: Response) => {
       res.write(`data: ${JSON.stringify({ type: "WALLET_CONNECTED" })}\n\n`);
     });
 
-  const clientId = `${req.params.workerId}-${Date.now()}`;
-  registerWalletSSEClient(clientId, req.params.workerId, res);
+  const clientId = `${workerId}-${Date.now()}`;
+  registerWalletSSEClient(clientId, workerId, res);
 
   // Heartbeat every 25s to keep connection alive through proxies
   const heartbeat = setInterval(() => {
