@@ -1,0 +1,14 @@
+[build]
+  command = "pnpm --filter @workspace/hustlesafe build"
+  publish = "artifacts/hustlesafe/dist/public"
+
+[[redirects]]
+  from = "/api/*"
+  to = "https://hustlesafe-api.onrender.com/api/:splat"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
