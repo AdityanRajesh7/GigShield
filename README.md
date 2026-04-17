@@ -75,7 +75,7 @@ The analytical backbone of HustleSafe. Ingests **5 real-time data streams** and 
 
 | Data Stream | Source | Base Weight |
 |-------------|--------|-------------|
-| Weather (rainfall, wind, visibility) | OpenWeatherMap | 35% |
+| Weather (rainfall, wind, visibility) | Open-Meteo API | 35% |
 | Traffic Congestion | TomTom / Google Maps Roads API | 20% |
 | Government Alerts (curfew, flood warnings) | India GeoPortal / NewsAPI | 20% |
 | Platform Demand Signal | Simulated delivery volume feed | 15% |
@@ -257,7 +257,7 @@ The architecture above is functionally sound for a hackathon prototype and early
 | Free-tier infrastructure | Render free tier cold-starts (30s+ latency after inactivity); Supabase free tier has connection limits (60 concurrent) | Upgrade to paid tiers before launch; or use Railway (always-on at $5/month) |
 | ML models served in-process | FastAPI worker thread blocked during inference; under load this degrades API latency for all other requests | Move ML inference to a dedicated model serving service (Triton, BentoML, or even a separate FastAPI instance); call it async from the main service |
 | Celery workers share the ML container | A crashed Celery worker takes down scheduled data ingestion alongside ML inference | Separate Celery into its own Docker service with independent scaling |
-| No circuit breaker on external APIs | OpenWeatherMap / TomTom API downtime → GDS engine hangs → no zone updates → stale data triggers false payouts | Implement circuit breakers (e.g., `tenacity` library) with fallback to last-known-good GDS values and insurer alerts |
+| No circuit breaker on external APIs | Open-Meteo API / TomTom API downtime → GDS engine hangs → no zone updates → stale data triggers false payouts | Implement circuit breakers (e.g., `tenacity` library) with fallback to last-known-good GDS values and insurer alerts |
 | No event sourcing / audit log | Payout decisions are final state changes; without an immutable event log, disputes are hard to resolve and regulatory audits are impossible | Add an `events` table capturing every state transition with timestamp, triggering signal values, and model version — this is also your fraud investigation evidence |
 | WebSocket at scale | Redis Pub/Sub is correct, but a single Redis instance fails at ~50k concurrent connections | For production at city scale, use Redis Cluster or move to a managed pub/sub (Upstash with sharding) |
 
@@ -299,8 +299,8 @@ The architecture above is functionally sound for a hackathon prototype and early
 ### AI / Machine Learning
 | ML Component | Technology | Training Data |
 |--------------|------------|---------------|
-| GDS Scoring — Adaptive Weights | XGBoost + Shapley attribution | 24mo OpenWeatherMap historical + synthetic disruption labels |
-| 6-Hour Forecast | LSTM (PyTorch) | IMD India Met archives + OpenWeatherMap 5-day forecast |
+| GDS Scoring — Adaptive Weights | XGBoost + Shapley attribution | 24mo Open-Meteo API historical + synthetic disruption labels |
+| 6-Hour Forecast | LSTM (PyTorch) | IMD India Met archives + Open-Meteo API 5-day forecast |
 | Weekly Premium | XGBoost Regressor | Zone risk history, seasonal patterns, festival calendar |
 | Fraud Detection | Isolation Forest + Logistic Regression | Synthetic fraud scenarios; real data post-launch |
 | Demand Collapse — Stage 1 | LSTM (PyTorch) | Synthetic order volume data (12-month, 30-min resolution) |
@@ -334,7 +334,7 @@ The architecture above is functionally sound for a hackathon prototype and early
 
 
 **Step 2 — Thursday Rainstorm**
-- `3:15 PM` — OpenWeatherMap reports 42mm/hr rainfall in Koramangala. GDS rises to 71.
+- `3:15 PM` — Open-Meteo API reports 42mm/hr rainfall in Koramangala. GDS rises to 71.
 - `3:16 PM` — Zone state → RED. WebSocket broadcasts to all clients.
 - `3:17 PM` — Ravi's phone: *"Rain disruption detected. Your income protection is now ACTIVE."*
 - `3:17 PM` — Claims Service calculates loss: 3 hours × ₹90/hr = ₹270
@@ -396,7 +396,7 @@ The combined output of both passes — up to 12 signals total — feeds the Adap
 | # | Signal | Data Source | What It Catches |
 |---|--------|-------------|-----------------|
 | 1 | **GPS Location Match** | Worker app GPS vs. declared disruption zone | Worker physically outside the claimed zone at payout time |
-| 2 | **Weather Station Correlation** | OpenWeatherMap grid data | No weather event present at the worker's actual GPS coordinate |
+| 2 | **Weather Station Correlation** | Open-Meteo API grid data | No weather event present at the worker's actual GPS coordinate |
 | 3 | **Peer Activity Check** | Platform delivery volume feed | Other workers in the same zone are still delivering normally |
 | 4 | **Historical Pattern Score** | Internal claims DB | Claim frequency anomalous vs. worker's own cohort baseline |
 | 5 | **Device Fingerprint** | App metadata | Multiple accounts operating from the same physical device |
@@ -668,7 +668,7 @@ Full OpenAPI docs auto-generated at `/docs` (FastAPI).
 - Docker & Docker Compose
 - Node.js 18+
 - Python 3.11+
-- API keys: OpenWeatherMap (free), TomTom (free), Mapbox (free), Razorpay (test mode), Twilio (trial)
+- API keys: Open-Meteo API (free), TomTom (free), Mapbox (free), Razorpay (test mode), Twilio (trial)
 
 ### Local Setup
 
@@ -695,30 +695,28 @@ docker-compose up --build
 
 ```env
 # External APIs
-OPENWEATHERMAP_API_KEY=your_key_here
-TOMTOM_API_KEY=your_key_here
-MAPBOX_PUBLIC_TOKEN=your_token_here
-NEWS_API_KEY=your_key_here
+# Firebase Configuration
+VITE_FIREBASE_API_KEY=your_api_key_here
+VITE_FIREBASE_AUTH_DOMAIN=your_project_id.firebaseapp.com
+VITE_FIREBASE_PROJECT_ID=your_project_id
+VITE_FIREBASE_STORAGE_BUCKET=your_project_id.firebasestorage.app
+VITE_FIREBASE_MESSAGING_SENDER_ID=your_messaging_sender_id
+VITE_FIREBASE_APP_ID=your_app_id
 
-# Payments
-RAZORPAY_KEY_ID=your_key_here
-RAZORPAY_KEY_SECRET=your_secret_here
+# Supabase Configuration
+VITE_SUPABASE_URL=https://your_project_ref.supabase.co
+VITE_SUPABASE_ANON_KEY=your_anon_key
 
-# Communications
-TWILIO_ACCOUNT_SID=your_sid_here
-TWILIO_AUTH_TOKEN=your_token_here
-TWILIO_PHONE_NUMBER=+1234567890
+# Database Connection (Backend)
+# Example: postgresql://postgres:password@host:port/database
+DATABASE_URL=your_database_url_here
 
-# Firebase (Push Notifications)
-FIREBASE_SERVER_KEY=your_key_here
+# App Settings
+VITE_DEMO_MODE=false
+PORT=5000
 
-# Infrastructure
-DATABASE_URL=postgresql+asyncpg://user:pass@localhost:5432/HustleSafe
-REDIS_URL=redis://localhost:6379
-
-# Security
-JWT_SECRET_KEY=your_secret_here
-ADMIN_SIMULATOR_KEY=your_demo_key_here
+# Security (Development only)
+# NODE_TLS_REJECT_UNAUTHORIZED=0
 ```
 
 ### Seeding Demo Data
