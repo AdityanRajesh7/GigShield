@@ -6,10 +6,23 @@
 
 ## 📽️ Demo Video
 
-[![Watch the HustleSafe Demo](https://img.youtube.com/vi/fZqMHUkTD1c/maxresdefault.jpg)](https://youtu.be/fZqMHUkTD1c)
+[![Watch the HustleSafe Demo](https://img.youtube.com/vi/IHVpSMfnKuQ/maxresdefault.jpg)](https://youtu.be/IHVpSMfnKuQ)
 
+## Live Demo
+
+You can explore the live application at the following link:
+[https://hustlesafe.onrender.com](https://hustlesafe.onrender.com)
 ---
+Insurer Admin Access:
 
+ . Email: admin@HustleSafe.com
+ . Password: @HustleSafe123
+
+Worker Access:
+
+ . Phone: +91 99999 99999
+ . OTP: 123456
+ 
 ## 📌 Table of Contents
 
 1. [The Problem](#1-the-problem)
@@ -718,33 +731,6 @@ PORT=5000
 # Security (Development only)
 # NODE_TLS_REJECT_UNAUTHORIZED=0
 ```
-
-### Seeding Demo Data
-
-```bash
-# Seed Bangalore zone grid, worker profiles, and historical GDS data
-docker-compose exec api python scripts/seed_demo.py --city bangalore --workers 50
-
-# Load pre-trained ML models
-docker-compose exec api python scripts/load_models.py
-```
-
-### Running the Disruption Simulator (Demo)
-
-```bash
-# Trigger a simulated rainstorm in Koramangala
-curl -X POST http://localhost:8000/admin/simulate \
-  -H "X-Admin-Key: your_demo_key_here" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "zone_id": "koramangala_bangalore",
-    "event_type": "heavy_rain",
-    "gds_target": 82,
-    "duration_minutes": 45
-  }'
-```
-
----
 
 ## 13. Demo Scenario
 
